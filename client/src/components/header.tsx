@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Search, Bell, Upload, Filter, User } from "lucide-react";
+import { Search, Bell, Upload, Filter, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AdvancedSearch } from "@/components/advanced-search";
+import { NotificationCenter } from "@/components/notifications/notification-center";
+import { useAuth } from "@/contexts/auth-context";
 
 interface HeaderProps {
   onSearchChange: (query: string) => void;
@@ -13,6 +16,7 @@ interface HeaderProps {
 
 export function Header({ onSearchChange, onUploadClick }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const { user, logout, isAuthenticated } = useAuth();
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -33,16 +37,12 @@ export function Header({ onSearchChange, onUploadClick }: HeaderProps) {
               </Link>
             </div>
             <nav className="hidden md:flex space-x-6">
-              <Link href="/" className="text-primary font-medium border-b-2 border-primary pb-1" data-testid="nav-browse">
-                Browse Notes
+              <Link href="/browse" className="text-gray-600 hover:text-primary transition-colors" data-testid="nav-browse">
+                Browse
               </Link>
-              <button 
-                onClick={onUploadClick}
-                className="text-gray-600 hover:text-primary transition-colors"
-                data-testid="nav-upload"
-              >
+              <Link href="/upload" className="text-gray-600 hover:text-primary transition-colors" data-testid="nav-upload">
                 Upload
-              </button>
+              </Link>
               <Link href="/dashboard" className="text-gray-600 hover:text-primary transition-colors" data-testid="nav-dashboard">
                 Dashboard
               </Link>
@@ -82,32 +82,65 @@ export function Header({ onSearchChange, onUploadClick }: HeaderProps) {
             </div>
           </div>
 
-          {/* User Profile */}
+          {/* User Profile / Auth */}
           <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative"
-              data-testid="notifications-button"
-            >
-              <Bell className="h-5 w-5" />
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                3
-              </span>
-            </Button>
-            <Link href="/dashboard">
-              <div className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition-colors">
-                <img
-                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&w=40&h=40&fit=crop&crop=face"
-                  alt="User Profile"
-                  className="w-8 h-8 rounded-full"
-                  data-testid="user-avatar"
-                />
-                <span className="text-sm font-medium text-gray-700 hidden md:block" data-testid="user-name">
-                  Alex Chen
-                </span>
+            {isAuthenticated ? (
+              <>
+                <NotificationCenter />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition-colors">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="h-4 w-4 text-primary" />
+                      </div>
+                      <span className="text-sm font-medium text-gray-700 hidden md:block" data-testid="user-name">
+                        {user?.username || 'User'}
+                      </span>
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile" className="w-full">
+                        Profile
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard" className="w-full">
+                        Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/bookmarks" className="w-full">
+                        Bookmarks
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/settings" className="w-full">
+                        Settings
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={logout}
+                      className="text-red-600 focus:text-red-600"
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Sign out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <Button variant="ghost" asChild>
+                  <Link href="/login">Sign in</Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/signup">Sign up</Link>
+                </Button>
               </div>
-            </Link>
+            )}
           </div>
         </div>
       </div>

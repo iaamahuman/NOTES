@@ -4,7 +4,9 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
-import { insertNoteSchema } from "@shared/schema";
+import { insertNoteSchema, insertUserSchema } from "@shared/schema";
+import bcrypt from "bcryptjs";
+import { randomUUID } from "crypto";
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), 'uploads');
@@ -41,6 +43,102 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Auth routes
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const { username, email, password, university, major, year } = req.body;
+      
+      // Validate input
+      const userData = {
+        username,
+        email,
+        password,
+        university: university || undefined,
+        major: major || undefined,
+        year: year || undefined,
+      };
+      
+      const validatedData = insertUserSchema.parse(userData);
+      
+      // Check if user already exists
+      const existingUserByEmail = await storage.getUserByEmail(validatedData.email);
+      if (existingUserByEmail) {
+        return res.status(400).json({ message: "User with this email already exists" });
+      }
+      
+      const existingUserByUsername = await storage.getUserByUsername(validatedData.username);
+      if (existingUserByUsername) {
+        return res.status(400).json({ message: "Username already taken" });
+      }
+      
+      // Hash password
+      const hashedPassword = await bcrypt.hash(validatedData.password, 12);
+      
+      // Create user
+      const user = await storage.createUser({
+        ...validatedData,
+        password: hashedPassword,
+      });
+      
+      // Don't return password
+      const { password: _, ...userResponse } = user;
+      
+      res.status(201).json({
+        message: "User created successfully",
+        user: userResponse,
+      });
+    } catch (error) {
+      console.error('Signup error:', error);
+      if (error instanceof Error && error.message.includes('validation')) {
+        return res.status(400).json({ message: "Invalid input data" });
+      }
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+  
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+      
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+      
+      // Check password
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+      
+      // Don't return password
+      const { password: _, ...userResponse } = user;
+      
+      res.json({
+        message: "Login successful",
+        user: userResponse,
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+  
+  app.post("/api/auth/logout", async (req, res) => {
+    try {
+      // In a real app, you'd clear the session/token here
+      res.json({ message: "Logout successful" });
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({ message: "Logout failed" });
+    }
+  });
+
   // Get all notes
   app.get("/api/notes", async (req, res) => {
     try {

@@ -341,7 +341,7 @@ export default function NoteDetail() {
                       />
                       <div className="text-sm text-gray-600">
                         <RatingStars
-                          rating={parseFloat(note.rating)}
+                          rating={parseFloat(note.rating || '0')}
                           readonly
                           showCount
                           count={note.ratingCount}

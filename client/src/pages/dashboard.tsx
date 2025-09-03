@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NoteCard } from "@/components/note-card";
 import { Header } from "@/components/header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DashboardAnalytics } from "@/components/analytics/dashboard-analytics";
 
 // Mock API functions (these would be real API calls)
 const getUserProfile = async () => ({
@@ -201,8 +202,9 @@ export default function Dashboard() {
           {/* Main Content */}
           <div className="lg:col-span-3">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
+                <TabsTrigger value="analytics" data-testid="tab-analytics">Analytics</TabsTrigger>
                 <TabsTrigger value="notes" data-testid="tab-notes">My Notes</TabsTrigger>
                 <TabsTrigger value="bookmarks" data-testid="tab-bookmarks">Bookmarks</TabsTrigger>
                 <TabsTrigger value="activity" data-testid="tab-activity">Activity</TabsTrigger>
@@ -300,6 +302,15 @@ export default function Dashboard() {
                     </div>
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              {/* Analytics Tab */}
+              <TabsContent value="analytics" className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Analytics Dashboard</h2>
+                  <Badge variant="outline">Updated in real-time</Badge>
+                </div>
+                <DashboardAnalytics />
               </TabsContent>
 
               {/* My Notes Tab */}
