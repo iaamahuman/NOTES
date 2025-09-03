@@ -93,24 +93,6 @@ export default function Home() {
               <p className="text-xl text-purple-100 mb-6">
                 Upload your notes and access thousands of study materials shared by students worldwide.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button
-                  onClick={() => setIsUploadModalOpen(true)}
-                  className="bg-white text-primary hover:bg-gray-50 px-6 py-3"
-                  data-testid="hero-upload-button"
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Notes
-                </Button>
-                <Button
-                  variant="outline"
-                  className="border-white text-white hover:bg-white hover:text-primary px-6 py-3"
-                  data-testid="hero-browse-button"
-                >
-                  <Search className="h-4 w-4 mr-2" />
-                  Browse Library
-                </Button>
-              </div>
             </div>
             <div className="hidden md:block">
               <img
