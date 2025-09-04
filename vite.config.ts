@@ -34,7 +34,7 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 5000,
-    allowedHosts: ["localhost", ".replit.dev"],
+    allowedHosts: "all",
     hmr: {
       port: 5000,
     },
