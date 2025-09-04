@@ -3,9 +3,13 @@ import {
   type Rating, type InsertRating, type Comment, type InsertComment,
   type Bookmark, type InsertBookmark, type Collection, type InsertCollection,
   type NoteWithDetails, type CommentWithUser, type RatingWithUser,
-  type UserProfile, type CollectionWithNotes
+  type UserProfile, type CollectionWithNotes,
+  users, notes, ratings, comments, bookmarks, follows, collections, collectionNotes
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
+import { eq, desc, asc, count, sql, and, or, ilike, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -620,4 +624,622 @@ export class MemStorage implements IStorage {
 
 }
 
-export const storage = new MemStorage();
+// Database setup
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL environment variable is required");
+}
+
+const connection = neon(process.env.DATABASE_URL);
+const db = drizzle(connection);
+
+export class PostgresStorage implements IStorage {
+  // User operations
+  async getUser(id: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
+    return result[0];
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    return result[0];
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const result = await db.insert(users).values(insertUser).returning();
+    return result[0];
+  }
+
+  async updateUserProfile(id: string, updates: Partial<InsertUser>): Promise<User> {
+    const result = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    if (!result[0]) throw new Error("User not found");
+    return result[0];
+  }
+
+  async getUserProfile(id: string): Promise<UserProfile | undefined> {
+    const user = await this.getUser(id);
+    if (!user) return undefined;
+
+    const [followersResult, followingResult, notesResult] = await Promise.all([
+      db.select({ count: count() }).from(follows).where(eq(follows.followingId, id)),
+      db.select({ count: count() }).from(follows).where(eq(follows.followerId, id)),
+      db.select({ count: count() }).from(notes).where(eq(notes.uploaderId, id))
+    ]);
+
+    return {
+      ...user,
+      followersCount: followersResult[0].count,
+      followingCount: followingResult[0].count,
+      notesCount: notesResult[0].count,
+      isFollowing: false,
+    };
+  }
+
+  // Note operations
+  async getNote(id: string): Promise<Note | undefined> {
+    const result = await db.select().from(notes).where(eq(notes.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getNoteWithUploader(id: string): Promise<NoteWithUploader | undefined> {
+    const result = await db
+      .select({
+        note: notes,
+        uploader: {
+          id: users.id,
+          username: users.username,
+          avatar: users.avatar,
+          reputation: users.reputation,
+        }
+      })
+      .from(notes)
+      .leftJoin(users, eq(notes.uploaderId, users.id))
+      .where(eq(notes.id, id))
+      .limit(1);
+
+    if (!result[0] || !result[0].uploader) return undefined;
+
+    return {
+      ...result[0].note,
+      uploader: {
+        ...result[0].uploader,
+        avatar: result[0].uploader.avatar || undefined
+      }
+    };
+  }
+
+  async getNoteWithDetails(noteId: string, userId?: string): Promise<NoteWithDetails | undefined> {
+    const noteWithUploader = await this.getNoteWithUploader(noteId);
+    if (!noteWithUploader) return undefined;
+
+    const [commentsResult, isBookmarkedResult, userRatingResult] = await Promise.all([
+      db.select({ count: count() }).from(comments).where(eq(comments.noteId, noteId)),
+      userId ? db.select().from(bookmarks).where(and(eq(bookmarks.noteId, noteId), eq(bookmarks.userId, userId))).limit(1) : Promise.resolve([]),
+      userId ? db.select().from(ratings).where(and(eq(ratings.noteId, noteId), eq(ratings.userId, userId))).limit(1) : Promise.resolve([])
+    ]);
+
+    return {
+      ...noteWithUploader,
+      commentsCount: commentsResult[0].count,
+      isBookmarked: isBookmarkedResult.length > 0,
+      userRating: userRatingResult[0]?.rating,
+    };
+  }
+
+  async getAllNotes(): Promise<NoteWithUploader[]> {
+    const result = await db
+      .select({
+        note: notes,
+        uploader: {
+          id: users.id,
+          username: users.username,
+          avatar: users.avatar,
+          reputation: users.reputation,
+        }
+      })
+      .from(notes)
+      .leftJoin(users, eq(notes.uploaderId, users.id))
+      .orderBy(desc(notes.createdAt));
+
+    return result.map(row => ({
+      ...row.note,
+      uploader: {
+        ...row.uploader!,
+        avatar: row.uploader!.avatar || undefined
+      }
+    }));
+  }
+
+  async getNotesBySubject(subject: string): Promise<NoteWithUploader[]> {
+    const result = await db
+      .select({
+        note: notes,
+        uploader: {
+          id: users.id,
+          username: users.username,
+          avatar: users.avatar,
+          reputation: users.reputation,
+        }
+      })
+      .from(notes)
+      .leftJoin(users, eq(notes.uploaderId, users.id))
+      .where(eq(notes.subject, subject))
+      .orderBy(desc(notes.createdAt));
+
+    return result.map(row => ({
+      ...row.note,
+      uploader: {
+        ...row.uploader!,
+        avatar: row.uploader!.avatar || undefined
+      }
+    }));
+  }
+
+  async getNotesByUser(userId: string): Promise<NoteWithUploader[]> {
+    const result = await db
+      .select({
+        note: notes,
+        uploader: {
+          id: users.id,
+          username: users.username,
+          avatar: users.avatar,
+          reputation: users.reputation,
+        }
+      })
+      .from(notes)
+      .leftJoin(users, eq(notes.uploaderId, users.id))
+      .where(eq(notes.uploaderId, userId))
+      .orderBy(desc(notes.createdAt));
+
+    return result.map(row => ({
+      ...row.note,
+      uploader: {
+        ...row.uploader!,
+        avatar: row.uploader!.avatar || undefined
+      }
+    }));
+  }
+
+  async searchNotes(query: string): Promise<NoteWithUploader[]> {
+    const result = await db
+      .select({
+        note: notes,
+        uploader: {
+          id: users.id,
+          username: users.username,
+          avatar: users.avatar,
+          reputation: users.reputation,
+        }
+      })
+      .from(notes)
+      .leftJoin(users, eq(notes.uploaderId, users.id))
+      .where(
+        or(
+          ilike(notes.title, `%${query}%`),
+          ilike(notes.description, `%${query}%`),
+          ilike(notes.subject, `%${query}%`)
+        )
+      )
+      .orderBy(desc(notes.createdAt));
+
+    return result.map(row => ({
+      ...row.note,
+      uploader: {
+        ...row.uploader!,
+        avatar: row.uploader!.avatar || undefined
+      }
+    }));
+  }
+
+  async getFeaturedNotes(): Promise<NoteWithUploader[]> {
+    const result = await db
+      .select({
+        note: notes,
+        uploader: {
+          id: users.id,
+          username: users.username,
+          avatar: users.avatar,
+          reputation: users.reputation,
+        }
+      })
+      .from(notes)
+      .leftJoin(users, eq(notes.uploaderId, users.id))
+      .where(
+        or(
+          eq(notes.isFeatured, true),
+          sql`CAST(${notes.rating} AS DECIMAL) >= 4.5`,
+          sql`${notes.downloads} > 50`
+        )
+      )
+      .orderBy(desc(notes.downloads))
+      .limit(6);
+
+    return result.map(row => ({
+      ...row.note,
+      uploader: {
+        ...row.uploader!,
+        avatar: row.uploader!.avatar || undefined
+      }
+    }));
+  }
+
+  async getRecentNotes(): Promise<NoteWithUploader[]> {
+    const result = await db
+      .select({
+        note: notes,
+        uploader: {
+          id: users.id,
+          username: users.username,
+          avatar: users.avatar,
+          reputation: users.reputation,
+        }
+      })
+      .from(notes)
+      .leftJoin(users, eq(notes.uploaderId, users.id))
+      .orderBy(desc(notes.createdAt))
+      .limit(8);
+
+    return result.map(row => ({
+      ...row.note,
+      uploader: {
+        ...row.uploader!,
+        avatar: row.uploader!.avatar || undefined
+      }
+    }));
+  }
+
+  async createNote(insertNote: InsertNote): Promise<Note> {
+    const result = await db.insert(notes).values(insertNote).returning();
+    return result[0];
+  }
+
+  async updateNote(id: string, updates: Partial<InsertNote>): Promise<Note> {
+    const result = await db.update(notes).set(updates).where(eq(notes.id, id)).returning();
+    if (!result[0]) throw new Error("Note not found");
+    return result[0];
+  }
+
+  async incrementDownloads(id: string): Promise<void> {
+    await db.update(notes).set({ downloads: sql`${notes.downloads} + 1` }).where(eq(notes.id, id));
+  }
+
+  async incrementViews(id: string): Promise<void> {
+    await db.update(notes).set({ views: sql`${notes.views} + 1` }).where(eq(notes.id, id));
+  }
+
+  // Rating operations
+  async createRating(insertRating: InsertRating): Promise<Rating> {
+    const result = await db.insert(ratings).values(insertRating).returning();
+    await this.updateNoteRating(insertRating.noteId);
+    return result[0];
+  }
+
+  async getUserRating(noteId: string, userId: string): Promise<Rating | undefined> {
+    const result = await db
+      .select()
+      .from(ratings)
+      .where(and(eq(ratings.noteId, noteId), eq(ratings.userId, userId)))
+      .limit(1);
+    return result[0];
+  }
+
+  async getNoteRatings(noteId: string): Promise<RatingWithUser[]> {
+    const result = await db
+      .select({
+        rating: ratings,
+        user: {
+          id: users.id,
+          username: users.username,
+          avatar: users.avatar,
+        }
+      })
+      .from(ratings)
+      .leftJoin(users, eq(ratings.userId, users.id))
+      .where(eq(ratings.noteId, noteId))
+      .orderBy(desc(ratings.createdAt));
+
+    return result.map(row => ({
+      ...row.rating,
+      user: {
+        ...row.user!,
+        avatar: row.user!.avatar || undefined
+      }
+    }));
+  }
+
+  async updateRating(id: string, rating: number, review?: string): Promise<Rating> {
+    const existingRating = await db.select().from(ratings).where(eq(ratings.id, id)).limit(1);
+    if (!existingRating[0]) throw new Error("Rating not found");
+
+    const result = await db
+      .update(ratings)
+      .set({ rating, review: review ?? existingRating[0].review })
+      .where(eq(ratings.id, id))
+      .returning();
+
+    await this.updateNoteRating(existingRating[0].noteId);
+    return result[0];
+  }
+
+  private async updateNoteRating(noteId: string): Promise<void> {
+    const ratingStats = await db
+      .select({
+        avgRating: sql<number>`AVG(${ratings.rating})`,
+        count: count()
+      })
+      .from(ratings)
+      .where(eq(ratings.noteId, noteId));
+
+    if (ratingStats[0].count > 0) {
+      await db
+        .update(notes)
+        .set({
+          rating: ratingStats[0].avgRating.toFixed(2),
+          ratingCount: ratingStats[0].count
+        })
+        .where(eq(notes.id, noteId));
+    }
+  }
+
+  // Comment operations
+  async createComment(insertComment: InsertComment): Promise<Comment> {
+    const result = await db.insert(comments).values(insertComment).returning();
+    return result[0];
+  }
+
+  async getNoteComments(noteId: string): Promise<CommentWithUser[]> {
+    const result = await db
+      .select({
+        comment: comments,
+        user: {
+          id: users.id,
+          username: users.username,
+          avatar: users.avatar,
+        }
+      })
+      .from(comments)
+      .leftJoin(users, eq(comments.userId, users.id))
+      .where(and(eq(comments.noteId, noteId), sql`${comments.parentId} IS NULL`))
+      .orderBy(asc(comments.createdAt));
+
+    const commentsWithReplies = await Promise.all(
+      result.map(async (row) => ({
+        ...row.comment,
+        user: {
+          ...row.user!,
+          avatar: row.user!.avatar || undefined
+        },
+        replies: await this.getCommentReplies(row.comment.id)
+      }))
+    );
+
+    return commentsWithReplies;
+  }
+
+  async getCommentReplies(parentId: string): Promise<CommentWithUser[]> {
+    const result = await db
+      .select({
+        comment: comments,
+        user: {
+          id: users.id,
+          username: users.username,
+          avatar: users.avatar,
+        }
+      })
+      .from(comments)
+      .leftJoin(users, eq(comments.userId, users.id))
+      .where(eq(comments.parentId, parentId))
+      .orderBy(asc(comments.createdAt));
+
+    return result.map(row => ({
+      ...row.comment,
+      user: {
+        ...row.user!,
+        avatar: row.user!.avatar || undefined
+      },
+    }));
+  }
+
+  async updateComment(id: string, content: string): Promise<Comment> {
+    const result = await db
+      .update(comments)
+      .set({ content })
+      .where(eq(comments.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Comment not found");
+    return result[0];
+  }
+
+  async deleteComment(id: string): Promise<void> {
+    // Delete replies first
+    await db.delete(comments).where(eq(comments.parentId, id));
+    // Delete the comment
+    await db.delete(comments).where(eq(comments.id, id));
+  }
+
+  // Bookmark operations
+  async createBookmark(insertBookmark: InsertBookmark): Promise<Bookmark> {
+    const result = await db.insert(bookmarks).values(insertBookmark).returning();
+    return result[0];
+  }
+
+  async removeBookmark(noteId: string, userId: string): Promise<void> {
+    await db
+      .delete(bookmarks)
+      .where(and(eq(bookmarks.noteId, noteId), eq(bookmarks.userId, userId)));
+  }
+
+  async getUserBookmarks(userId: string): Promise<NoteWithUploader[]> {
+    const result = await db
+      .select({
+        note: notes,
+        uploader: {
+          id: users.id,
+          username: users.username,
+          avatar: users.avatar,
+          reputation: users.reputation,
+        }
+      })
+      .from(bookmarks)
+      .leftJoin(notes, eq(bookmarks.noteId, notes.id))
+      .leftJoin(users, eq(notes.uploaderId, users.id))
+      .where(eq(bookmarks.userId, userId))
+      .orderBy(desc(bookmarks.createdAt));
+
+    return result.map(row => ({
+      ...row.note!,
+      uploader: {
+        ...row.uploader!,
+        avatar: row.uploader!.avatar || undefined
+      }
+    }));
+  }
+
+  async isBookmarked(noteId: string, userId: string): Promise<boolean> {
+    const result = await db
+      .select()
+      .from(bookmarks)
+      .where(and(eq(bookmarks.noteId, noteId), eq(bookmarks.userId, userId)))
+      .limit(1);
+    return result.length > 0;
+  }
+
+  // Collection operations
+  async createCollection(insertCollection: InsertCollection): Promise<Collection> {
+    const result = await db.insert(collections).values(insertCollection).returning();
+    return result[0];
+  }
+
+  async getUserCollections(userId: string): Promise<CollectionWithNotes[]> {
+    const userCollections = await db
+      .select()
+      .from(collections)
+      .where(eq(collections.userId, userId));
+
+    const collectionsWithNotes = await Promise.all(
+      userCollections.map(async (collection) => {
+        const notesCount = await db
+          .select({ count: count() })
+          .from(collectionNotes)
+          .where(eq(collectionNotes.collectionId, collection.id));
+
+        return {
+          ...collection,
+          notes: [], // Could populate if needed
+          notesCount: notesCount[0].count,
+        };
+      })
+    );
+
+    return collectionsWithNotes;
+  }
+
+  async getCollection(id: string): Promise<CollectionWithNotes | undefined> {
+    const collection = await db.select().from(collections).where(eq(collections.id, id)).limit(1);
+    if (!collection[0]) return undefined;
+
+    const notesCount = await db
+      .select({ count: count() })
+      .from(collectionNotes)
+      .where(eq(collectionNotes.collectionId, id));
+
+    return {
+      ...collection[0],
+      notes: [], // Could populate if needed
+      notesCount: notesCount[0].count,
+    };
+  }
+
+  async addNoteToCollection(collectionId: string, noteId: string): Promise<void> {
+    await db.insert(collectionNotes).values({ collectionId, noteId });
+  }
+
+  async removeNoteFromCollection(collectionId: string, noteId: string): Promise<void> {
+    await db
+      .delete(collectionNotes)
+      .where(and(eq(collectionNotes.collectionId, collectionId), eq(collectionNotes.noteId, noteId)));
+  }
+
+  async updateCollection(id: string, updates: Partial<InsertCollection>): Promise<Collection> {
+    const result = await db
+      .update(collections)
+      .set(updates)
+      .where(eq(collections.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Collection not found");
+    return result[0];
+  }
+
+  async deleteCollection(id: string): Promise<void> {
+    // Delete collection notes first
+    await db.delete(collectionNotes).where(eq(collectionNotes.collectionId, id));
+    // Delete the collection
+    await db.delete(collections).where(eq(collections.id, id));
+  }
+
+  // Follow operations
+  async followUser(followerId: string, followingId: string): Promise<void> {
+    await db.insert(follows).values({ followerId, followingId });
+  }
+
+  async unfollowUser(followerId: string, followingId: string): Promise<void> {
+    await db
+      .delete(follows)
+      .where(and(eq(follows.followerId, followerId), eq(follows.followingId, followingId)));
+  }
+
+  async isFollowing(followerId: string, followingId: string): Promise<boolean> {
+    const result = await db
+      .select()
+      .from(follows)
+      .where(and(eq(follows.followerId, followerId), eq(follows.followingId, followingId)))
+      .limit(1);
+    return result.length > 0;
+  }
+
+  async getUserFollowers(userId: string): Promise<UserProfile[]> {
+    const result = await db
+      .select({
+        user: users
+      })
+      .from(follows)
+      .leftJoin(users, eq(follows.followerId, users.id))
+      .where(eq(follows.followingId, userId));
+
+    const followers = await Promise.all(
+      result.map(async (row) => {
+        if (!row.user) return null;
+        const profile = await this.getUserProfile(row.user.id);
+        return profile;
+      })
+    );
+
+    return followers.filter((profile): profile is UserProfile => profile !== null);
+  }
+
+  async getUserFollowing(userId: string): Promise<UserProfile[]> {
+    const result = await db
+      .select({
+        user: users
+      })
+      .from(follows)
+      .leftJoin(users, eq(follows.followingId, users.id))
+      .where(eq(follows.followerId, userId));
+
+    const following = await Promise.all(
+      result.map(async (row) => {
+        if (!row.user) return null;
+        const profile = await this.getUserProfile(row.user.id);
+        return profile;
+      })
+    );
+
+    return following.filter((profile): profile is UserProfile => profile !== null);
+  }
+}
+
+export const storage = new PostgresStorage();

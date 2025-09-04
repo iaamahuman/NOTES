@@ -9,12 +9,15 @@ const app = express();
 // Session configuration
 const PgSession = ConnectPgSimple(session);
 
+// Configure PostgreSQL session store
+const sessionStore = new PgSession({
+  conString: process.env.DATABASE_URL,
+  tableName: 'user_sessions',
+  createTableIfMissing: true,
+});
+
 app.use(session({
-  store: new PgSession({
-    conString: process.env.DATABASE_URL,
-    tableName: 'user_sessions',
-    createTableIfMissing: true,
-  }),
+  store: sessionStore,
   name: 'quill.sid',
   secret: process.env.SESSION_SECRET || 'fallback-secret-key-for-development',
   resave: false,
