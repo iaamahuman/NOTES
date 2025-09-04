@@ -34,7 +34,12 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 5000,
-    allowedHosts: "all",
+    allowedHosts: [
+      "localhost",
+      "4aefd7f5-a215-4d3d-87e0-612ad1948fd1-00-qdy8pqdktwit.sisko.replit.dev",
+      ".replit.dev",
+      ".repl.co"
+    ],
     hmr: {
       port: 5000,
     },
