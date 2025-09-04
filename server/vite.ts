@@ -43,12 +43,7 @@ export async function setupVite(app: Express, server: Server) {
     },
     server: {
       ...serverOptions,
-      allowedHosts: [
-        "localhost",
-        "4aefd7f5-a215-4d3d-87e0-612ad1948fd1-00-qdy8pqdktwit.sisko.replit.dev",
-        ".replit.dev",
-        ".repl.co"
-      ],
+      allowedHosts: true,
     },
     appType: "custom",
   });
