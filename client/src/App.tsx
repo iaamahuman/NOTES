@@ -16,16 +16,28 @@ import Settings from "@/pages/settings";
 import Bookmarks from "@/pages/bookmarks";
 import About from "@/pages/about";
 import NotFound from "@/pages/not-found";
-import { RequireGuest } from "@/components/protected-route";
+import { RequireGuest, RequireAuth } from "@/components/protected-route";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/browse" component={Browse} />
-      <Route path="/upload" component={Upload} />
-      <Route path="/bookmarks" component={Bookmarks} />
-      <Route path="/settings" component={Settings} />
+      <Route path="/upload">
+        <RequireAuth>
+          <Upload />
+        </RequireAuth>
+      </Route>
+      <Route path="/bookmarks">
+        <RequireAuth>
+          <Bookmarks />
+        </RequireAuth>
+      </Route>
+      <Route path="/settings">
+        <RequireAuth>
+          <Settings />
+        </RequireAuth>
+      </Route>
       <Route path="/about" component={About} />
       <Route path="/login">
         <RequireGuest>
@@ -37,8 +49,16 @@ function Router() {
           <Signup />
         </RequireGuest>
       </Route>
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/profile" component={Profile} />
+      <Route path="/dashboard">
+        <RequireAuth>
+          <Dashboard />
+        </RequireAuth>
+      </Route>
+      <Route path="/profile">
+        <RequireAuth>
+          <Profile />
+        </RequireAuth>
+      </Route>
       <Route path="/notes/:id" component={NoteDetail} />
       <Route component={NotFound} />
     </Switch>
