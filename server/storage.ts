@@ -87,57 +87,7 @@ export class MemStorage implements IStorage {
     this.collections = new Map();
     this.collectionNotes = new Map();
     
-    // Create sample users for development
-    const sampleUser1: User = {
-      id: "sample-user-1",
-      username: "alexchen",
-      email: "alex@example.com",
-      password: "hashedpassword",
-      avatar: null,
-      bio: "CS student at MIT",
-      university: "MIT",
-      major: "Computer Science",
-      year: "2024",
-      reputation: 150,
-      totalUploads: 8,
-      totalDownloads: 42,
-      createdAt: new Date(Date.now() - 86400000 * 30), // 30 days ago
-    };
-    this.users.set(sampleUser1.id, sampleUser1);
-
-    const sampleUser2: User = {
-      id: "sample-user-2",
-      username: "sarahkim",
-      email: "sarah@example.com",
-      password: "hashedpassword",
-      avatar: null,
-      bio: "Math major, love helping others understand complex concepts",
-      university: "Stanford University",
-      major: "Mathematics",
-      year: "2025",
-      reputation: 230,
-      totalUploads: 15,
-      totalDownloads: 89,
-      createdAt: new Date(Date.now() - 86400000 * 45), // 45 days ago
-    };
-    this.users.set(sampleUser2.id, sampleUser2);
-
-    const sampleUser3: User = {
-      id: "sample-user-3",
-      username: "mikejohnson",
-      email: "mike@example.com",
-      password: "hashedpassword",
-      avatar: null,
-      bio: "Physics PhD candidate",
-      university: "Caltech",
-      major: "Physics",
-      year: "2023",
-      reputation: 320,
-      totalUploads: 22,
-      totalDownloads: 156,
-      createdAt: new Date(Date.now() - 86400000 * 60), // 60 days ago
-    };
-    this.users.set(sampleUser3.id, sampleUser3);
+    // No sample users - all accounts will be user-created through registration
 
     // No sample notes - all content will be user-generated
   }
