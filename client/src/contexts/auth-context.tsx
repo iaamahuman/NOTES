@@ -41,15 +41,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // In a real app, you'd check for a session token/cookie here
-        // For now, we'll just check localStorage for demo purposes
-        const savedUser = localStorage.getItem("quill_user");
-        if (savedUser) {
-          setUser(JSON.parse(savedUser));
+        // Check if we have an active session with the server
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "include", // Include cookies in request
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          setUser(result.user);
+        } else {
+          // No valid session, clear any stale localStorage data
+          localStorage.removeItem("quill_user");
+          setUser(null);
         }
       } catch (error) {
         console.error("Auth check failed:", error);
         localStorage.removeItem("quill_user");
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -65,6 +74,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include", // Include cookies in request
         body: JSON.stringify({ email, password }),
       });
 
@@ -77,6 +87,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const userData = result.user;
       
       setUser(userData);
+      // Keep localStorage as backup for UI consistency
       localStorage.setItem("quill_user", JSON.stringify(userData));
       
       return userData;
@@ -92,6 +103,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include", // Include cookies in request
         body: JSON.stringify(userData),
       });
 
@@ -104,6 +116,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const newUser = result.user;
       
       setUser(newUser);
+      // Keep localStorage as backup for UI consistency
       localStorage.setItem("quill_user", JSON.stringify(newUser));
       
       return newUser;
@@ -116,6 +129,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       await fetch("/api/auth/logout", {
         method: "POST",
+        credentials: "include", // Include cookies in request
       });
     } catch (error) {
       console.error("Logout API call failed:", error);

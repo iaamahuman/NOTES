@@ -1,5 +1,18 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response } from "express";
 import { createServer, type Server } from "http";
+
+// Extend Express Request to include session user
+declare module 'express-session' {
+  interface SessionData {
+    userId?: string;
+    user?: {
+      id: string;
+      username: string;
+      email: string;
+      avatar?: string;
+    };
+  }
+}
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -80,6 +93,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: hashedPassword,
       });
       
+      // Create session for new user
+      req.session.userId = user.id;
+      req.session.user = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar || undefined,
+      };
+      
       // Don't return password
       const { password: _, ...userResponse } = user;
       
@@ -116,6 +138,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid email or password" });
       }
       
+      // Create session
+      req.session.userId = user.id;
+      req.session.user = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar || undefined,
+      };
+      
       // Don't return password
       const { password: _, ...userResponse } = user;
       
@@ -131,13 +162,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/auth/logout", async (req, res) => {
     try {
-      // In a real app, you'd clear the session/token here
-      res.json({ message: "Logout successful" });
+      // Clear the session
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Session destroy error:', err);
+          return res.status(500).json({ message: "Logout failed" });
+        }
+        res.clearCookie('quill.sid');
+        res.json({ message: "Logout successful" });
+      });
     } catch (error) {
       console.error('Logout error:', error);
       res.status(500).json({ message: "Logout failed" });
     }
   });
+
+  // Get current user session
+  app.get("/api/auth/me", async (req, res) => {
+    try {
+      if (!req.session.userId || !req.session.user) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      // Optionally refresh user data from storage
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        req.session.destroy(() => {});
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const { password: _, ...userResponse } = user;
+      res.json({
+        user: userResponse,
+      });
+    } catch (error) {
+      console.error('Me endpoint error:', error);
+      res.status(500).json({ message: "Failed to get user info" });
+    }
+  });
+
+  // Authentication middleware
+  const requireAuth = (req: Request, res: Response, next: any) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    next();
+  };
 
   // Get all notes
   app.get("/api/notes", async (req, res) => {
@@ -197,7 +267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload note
-  app.post("/api/notes", upload.single('file'), async (req, res) => {
+  app.post("/api/notes", requireAuth, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -227,7 +297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileName: req.file.originalname,
         fileSize: req.file.size,
         filePath: req.file.path,
-        uploaderId: "sample-user-id", // Using sample user for now
+        uploaderId: req.session.userId!, // Use authenticated user
       };
 
       const validatedData = insertNoteSchema.parse(noteData);
