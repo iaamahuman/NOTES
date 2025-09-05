@@ -15,88 +15,24 @@ import { CommentSection } from "@/components/comment-section";
 import { Header } from "@/components/header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  getNoteDetails, 
+  getNoteComments, 
+  downloadNote, 
+  createBookmark, 
+  removeBookmark,
+  createComment 
+} from "@/lib/api";
 import type { NoteWithDetails, CommentWithUser } from "@shared/schema";
-
-// Mock API functions
-const getNoteDetails = async (id: string): Promise<NoteWithDetails> => {
-  // This would be a real API call
-  return {
-    id,
-    title: "Advanced Linear Algebra - Eigenvalues and Eigenvectors",
-    description: "Comprehensive notes covering eigenvalues, eigenvectors, diagonalization, and applications in computer graphics and data science. Includes solved examples and practice problems.",
-    subject: "Mathematics",
-    tags: ["linear-algebra", "eigenvalues", "mathematics", "computer-science"],
-    course: "MATH 221",
-    professor: "Dr. Sarah Johnson",
-    semester: "Fall 2024",
-    fileType: "pdf",
-    fileName: "linear_algebra_eigenvalues.pdf",
-    fileSize: 2048576,
-    filePath: "/uploads/sample-file.pdf",
-    thumbnailPath: null,
-    uploaderId: "sample-user-id",
-    downloads: 234,
-    views: 1567,
-    rating: "4.7",
-    ratingCount: 23,
-    isFeatured: true,
-    isPublic: true,
-    createdAt: new Date("2024-01-15"),
-    uploader: {
-      username: "alexchen",
-      id: "sample-user-id",
-      avatar: undefined,
-      reputation: 1250
-    },
-    commentsCount: 8,
-    isBookmarked: false,
-    userRating: 0
-  };
-};
-
-const getNoteComments = async (noteId: string): Promise<CommentWithUser[]> => {
-  return [
-    {
-      id: "comment-1",
-      noteId,
-      userId: "user-1",
-      content: "These notes are incredibly detailed! The examples really helped me understand the concept of eigenvectors.",
-      parentId: null,
-      createdAt: new Date("2024-01-16T10:30:00Z"),
-      user: {
-        username: "mathstudent23",
-        avatar: undefined,
-        id: "user-1"
-      },
-      replies: [
-        {
-          id: "comment-2",
-          noteId,
-          userId: "sample-user-id",
-          content: "Thanks! I'm glad they helped. Feel free to ask if you have any questions.",
-          parentId: "comment-1",
-          createdAt: new Date("2024-01-16T11:45:00Z"),
-          user: {
-            username: "alexchen",
-            avatar: undefined,
-            id: "sample-user-id"
-          }
-        }
-      ]
-    }
-  ];
-};
 
 export default function NoteDetail() {
   const [match, params] = useRoute("/notes/:id");
   const noteId = params?.id || "";
-  const [userRating, setUserRating] = useState(0);
-  const [isBookmarked, setIsBookmarked] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: note, isLoading: isLoadingNote } = useQuery({
-    queryKey: ['/api/notes', noteId],
+    queryKey: ['/api/notes', noteId, 'details'],
     queryFn: () => getNoteDetails(noteId),
     enabled: !!noteId,
   });
@@ -109,18 +45,8 @@ export default function NoteDetail() {
 
   const downloadMutation = useMutation({
     mutationFn: async (noteId: string) => {
-      const response = await fetch(`/api/notes/${noteId}/download`);
-      if (!response.ok) throw new Error('Download failed');
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = note?.fileName || 'download';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      downloadNote(noteId);
+      return Promise.resolve();
     },
     onSuccess: () => {
       toast({ title: "Download started", description: "Your file is being downloaded." });
@@ -131,12 +57,36 @@ export default function NoteDetail() {
     }
   });
 
+  const bookmarkMutation = useMutation({
+    mutationFn: async ({ noteId, isCurrentlyBookmarked }: { noteId: string; isCurrentlyBookmarked: boolean }) => {
+      if (isCurrentlyBookmarked) {
+        return removeBookmark(noteId);
+      } else {
+        return createBookmark(noteId);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/notes', noteId, 'details'] });
+      toast({ 
+        title: note?.isBookmarked ? "Bookmark removed" : "Bookmark added", 
+        description: note?.isBookmarked ? "Note removed from bookmarks" : "Note added to bookmarks" 
+      });
+    },
+    onError: () => {
+      toast({ 
+        title: "Action failed", 
+        description: "Failed to update bookmark",
+        variant: "destructive" 
+      });
+    }
+  });
+
   const handleDownload = () => {
     downloadMutation.mutate(noteId);
   };
 
   const handleRating = (rating: number) => {
-    setUserRating(rating);
+    // TODO: Implement rating functionality
     toast({ 
       title: "Rating submitted", 
       description: `You rated this note ${rating} stars.` 
@@ -144,11 +94,8 @@ export default function NoteDetail() {
   };
 
   const handleBookmark = () => {
-    setIsBookmarked(!isBookmarked);
-    toast({ 
-      title: isBookmarked ? "Removed from bookmarks" : "Added to bookmarks",
-      description: isBookmarked ? "Note removed from your bookmarks" : "Note saved to your bookmarks"
-    });
+    const isCurrentlyBookmarked = note?.isBookmarked || false;
+    bookmarkMutation.mutate({ noteId, isCurrentlyBookmarked });
   };
 
   const handleAddComment = (content: string, parentId?: string) => {
@@ -304,7 +251,7 @@ export default function NoteDetail() {
                     className="flex items-center gap-2"
                     data-testid="bookmark-button"
                   >
-                    {isBookmarked ? (
+                    {note?.isBookmarked ? (
                       <>
                         <BookmarkCheck className="h-4 w-4" />
                         Bookmarked
@@ -335,7 +282,7 @@ export default function NoteDetail() {
                     <h4 className="font-medium">Rate this note</h4>
                     <div className="flex items-center gap-4">
                       <RatingStars
-                        rating={userRating}
+                        rating={note?.userRating || 0}
                         onRatingChange={handleRating}
                         size="lg"
                       />

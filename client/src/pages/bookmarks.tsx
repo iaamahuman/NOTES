@@ -11,6 +11,8 @@ import { NoteCard } from "@/components/note-card";
 import { NoteCardSkeleton } from "@/components/ui/skeletons";
 import { RequireAuth } from "@/components/protected-route";
 import { useToast } from "@/hooks/use-toast";
+import { getUserBookmarks, removeBookmark } from "@/lib/api";
+import { queryClient } from "@/lib/queryClient";
 import type { NoteWithUploader } from "@shared/schema";
 
 // Mock bookmarked notes data
@@ -83,30 +85,31 @@ export default function Bookmarks() {
   const [selectedNotes, setSelectedNotes] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("recent");
 
-  // Mock query - in real app this would fetch user's bookmarks
-  const { data: bookmarks = mockBookmarks, isLoading } = useQuery({
-    queryKey: ["/api/user/bookmarks", { search: searchQuery, subject: selectedSubject }],
-    queryFn: async () => {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return mockBookmarks.filter(note => 
-        (!searchQuery || note.title.toLowerCase().includes(searchQuery.toLowerCase())) &&
-        (!selectedSubject || note.subject === selectedSubject)
-      );
-    },
+  // Fetch user's bookmarks from API
+  const { data: allBookmarks = [], isLoading } = useQuery({
+    queryKey: ["/api/user/bookmarks"],
+    queryFn: getUserBookmarks,
   });
 
-  const subjects = Array.from(new Set(mockBookmarks.map(note => note.subject)));
+  // Filter bookmarks based on search and subject
+  const bookmarks = allBookmarks.filter(note => 
+    (!searchQuery || note.title.toLowerCase().includes(searchQuery.toLowerCase())) &&
+    (!selectedSubject || note.subject === selectedSubject)
+  );
+
+  const subjects = Array.from(new Set(allBookmarks.map(note => note.subject)));
 
   const handleRemoveBookmark = async (noteId: string) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await removeBookmark(noteId);
       
       toast({
         title: "Bookmark removed",
         description: "The note has been removed from your bookmarks.",
       });
+      
+      // Refresh the bookmarks list
+      queryClient.invalidateQueries({ queryKey: ["/api/user/bookmarks"] });
     } catch (error) {
       toast({
         title: "Error",

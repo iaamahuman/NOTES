@@ -13,34 +13,12 @@ import { NoteCard } from "@/components/note-card";
 import { Header } from "@/components/header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DashboardAnalytics } from "@/components/analytics/dashboard-analytics";
-
-// Mock API functions (these would be real API calls)
-const getUserProfile = async () => ({
-  id: "sample-user-id",
-  username: "alexchen",
-  email: "alex@example.com",
-  avatar: null,
-  bio: "Computer Science student passionate about algorithms and data structures",
-  university: "Stanford University",
-  major: "Computer Science",
-  year: "Junior",
-  reputation: 1250,
-  totalUploads: 42,
-  totalDownloads: 1890,
-  followersCount: 156,
-  followingCount: 89,
-  notesCount: 42,
-  createdAt: new Date("2023-01-15"),
-});
-
-const getUserNotes = async () => [];
-const getUserBookmarks = async () => [];
-const getUserStats = async () => ({
-  totalViews: 5420,
-  avgRating: 4.7,
-  thisMonthUploads: 8,
-  thisMonthDownloads: 234,
-});
+import { 
+  getUserProfile, 
+  getUserNotes, 
+  getUserBookmarks, 
+  getUserStats 
+} from "@/lib/api";
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview");

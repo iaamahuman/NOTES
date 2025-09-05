@@ -20,6 +20,8 @@ import { useToast } from "@/hooks/use-toast";
 import { RequireAuth } from "@/components/protected-route";
 import { UserProfileSkeleton } from "@/components/ui/skeletons";
 import { NoteCard } from "@/components/note-card";
+import { getUserStats, getUserNotes } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
 import type { User as UserType, NoteWithUploader } from "@shared/schema";
 
 const profileUpdateSchema = z.object({
@@ -75,28 +77,33 @@ const mockUserNotes: NoteWithUploader[] = [
 ];
 
 function ProfileStats({ user }: { user: UserType }) {
-  const stats = [
+  const { data: stats } = useQuery({
+    queryKey: ['/api/user/stats'],
+    queryFn: getUserStats,
+  });
+
+  const statItems = [
     {
       label: "Notes Uploaded",
-      value: mockUserStats.notesUploaded,
+      value: stats?.thisMonthUploads || 0,
       icon: Upload,
       color: "text-blue-600",
     },
     {
-      label: "Total Downloads",
-      value: mockUserStats.totalDownloads.toLocaleString(),
+      label: "Total Views",
+      value: stats?.totalViews.toLocaleString() || "0",
       icon: Download,
       color: "text-green-600",
     },
     {
       label: "Average Rating",
-      value: mockUserStats.averageRating.toFixed(1),
+      value: stats?.avgRating.toFixed(1) || "0.0",
       icon: Star,
       color: "text-yellow-600",
     },
     {
-      label: "Reputation",
-      value: mockUserStats.reputation,
+      label: "This Month Downloads",
+      value: stats?.thisMonthDownloads || 0,
       icon: User,
       color: "text-purple-600",
     },
@@ -104,7 +111,7 @@ function ProfileStats({ user }: { user: UserType }) {
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {stats.map((stat, index) => {
+      {statItems.map((stat, index) => {
         const Icon = stat.icon;
         return (
           <Card key={index}>
@@ -347,7 +354,26 @@ function EditProfileForm({
 }
 
 function UserNotesList() {
-  const [notes] = useState(mockUserNotes);
+  const { data: notes = [], isLoading } = useQuery({
+    queryKey: ['/api/user/notes'],
+    queryFn: getUserNotes,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Your Notes</h3>
+          <Badge variant="secondary">Loading...</Badge>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-48 bg-gray-200 rounded-lg animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

@@ -332,6 +332,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get note with details (includes user context like bookmarks, ratings)
+  app.get("/api/notes/:id/details", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      const noteWithDetails = await storage.getNoteWithDetails(req.params.id, userId);
+      if (!noteWithDetails) {
+        return res.status(404).json({ message: "Note not found" });
+      }
+      
+      // Increment view count
+      await storage.incrementViews(req.params.id);
+      
+      res.json(noteWithDetails);
+    } catch (error) {
+      console.error('Error fetching note details:', error);
+      res.status(500).json({ message: "Failed to fetch note details" });
+    }
+  });
+
+  // Get note comments
+  app.get("/api/notes/:id/comments", async (req, res) => {
+    try {
+      const comments = await storage.getNoteComments(req.params.id);
+      res.json(comments);
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+      res.status(500).json({ message: "Failed to fetch comments" });
+    }
+  });
+
+  // Create comment
+  app.post("/api/comments", requireAuth, async (req, res) => {
+    try {
+      const { noteId, content, parentId } = req.body;
+      
+      if (!noteId || !content) {
+        return res.status(400).json({ message: "Note ID and content are required" });
+      }
+      
+      const comment = await storage.createComment({
+        noteId,
+        userId: req.session.userId!,
+        content,
+        parentId: parentId || undefined,
+      });
+      
+      res.status(201).json(comment);
+    } catch (error) {
+      console.error('Error creating comment:', error);
+      res.status(500).json({ message: "Failed to create comment" });
+    }
+  });
+
+  // Get user profile
+  app.get("/api/user/profile", requireAuth, async (req, res) => {
+    try {
+      const profile = await storage.getUserProfile(req.session.userId!);
+      if (!profile) {
+        return res.status(404).json({ message: "User profile not found" });
+      }
+      res.json(profile);
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      res.status(500).json({ message: "Failed to fetch user profile" });
+    }
+  });
+
+  // Get user's notes
+  app.get("/api/user/notes", requireAuth, async (req, res) => {
+    try {
+      const notes = await storage.getNotesByUser(req.session.userId!);
+      res.json(notes);
+    } catch (error) {
+      console.error('Error fetching user notes:', error);
+      res.status(500).json({ message: "Failed to fetch user notes" });
+    }
+  });
+
+  // Get user's bookmarks
+  app.get("/api/user/bookmarks", requireAuth, async (req, res) => {
+    try {
+      const bookmarks = await storage.getUserBookmarks(req.session.userId!);
+      res.json(bookmarks);
+    } catch (error) {
+      console.error('Error fetching bookmarks:', error);
+      res.status(500).json({ message: "Failed to fetch bookmarks" });
+    }
+  });
+
+  // Get user stats
+  app.get("/api/user/stats", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const userNotes = await storage.getNotesByUser(userId);
+      
+      // Calculate stats from user's notes
+      const totalViews = userNotes.reduce((sum, note) => sum + note.views, 0);
+      const ratingsSum = userNotes.reduce((sum, note) => sum + parseFloat(note.rating || '0'), 0);
+      const avgRating = userNotes.length > 0 ? (ratingsSum / userNotes.length) : 0;
+      
+      // For monthly stats, we'll just use simplified calculations for now
+      const thisMonthUploads = userNotes.filter(note => {
+        const noteDate = new Date(note.createdAt);
+        const now = new Date();
+        return noteDate.getMonth() === now.getMonth() && 
+               noteDate.getFullYear() === now.getFullYear();
+      }).length;
+      
+      const thisMonthDownloads = Math.floor(userNotes.reduce((sum, note) => sum + note.downloads, 0) * 0.1); // Estimate
+
+      const stats = {
+        totalViews,
+        avgRating: Number(avgRating.toFixed(1)),
+        thisMonthUploads,
+        thisMonthDownloads,
+      };
+      
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+      res.status(500).json({ message: "Failed to fetch user stats" });
+    }
+  });
+
+  // Create bookmark
+  app.post("/api/bookmarks", requireAuth, async (req, res) => {
+    try {
+      const { noteId } = req.body;
+      
+      if (!noteId) {
+        return res.status(400).json({ message: "Note ID is required" });
+      }
+      
+      // Check if already bookmarked
+      const isBookmarked = await storage.isBookmarked(noteId, req.session.userId!);
+      if (isBookmarked) {
+        return res.status(400).json({ message: "Note already bookmarked" });
+      }
+      
+      const bookmark = await storage.createBookmark({
+        noteId,
+        userId: req.session.userId!,
+      });
+      
+      res.status(201).json(bookmark);
+    } catch (error) {
+      console.error('Error creating bookmark:', error);
+      res.status(500).json({ message: "Failed to create bookmark" });
+    }
+  });
+
+  // Remove bookmark
+  app.delete("/api/bookmarks/:noteId", requireAuth, async (req, res) => {
+    try {
+      await storage.removeBookmark(req.params.noteId, req.session.userId!);
+      res.json({ message: "Bookmark removed" });
+    } catch (error) {
+      console.error('Error removing bookmark:', error);
+      res.status(500).json({ message: "Failed to remove bookmark" });
+    }
+  });
+
   // Serve uploaded files
   app.use('/uploads', (req, res, next) => {
     // Add basic security check here if needed
