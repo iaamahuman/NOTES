@@ -79,27 +79,36 @@ export default function Upload() {
   const watchedTitle = watch("title");
   const watchedDescription = watch("description");
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // File size check (10MB limit)
-    if (file.size > 10 * 1024 * 1024) {
+  const validateAndSetFile = (file: File) => {
+    // File size check (25MB limit - increased from 10MB)
+    if (file.size > 25 * 1024 * 1024) {
       setFileState(prev => ({
         ...prev,
-        error: "File size must be less than 10MB"
+        error: "File size must be less than 25MB"
       }));
-      return;
+      return false;
     }
 
-    // File type check
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'text/plain'];
-    if (!allowedTypes.includes(file.type)) {
+    // Enhanced file type check
+    const allowedTypes = [
+      'application/pdf', 
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      'text/plain', 'text/markdown',
+      'application/msword', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    ];
+    
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'txt', 'md', 'doc', 'docx', 'ppt', 'pptx'];
+    
+    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension || '')) {
       setFileState(prev => ({
         ...prev,
-        error: "Only PDF, images, and text files are allowed"
+        error: "Supported file types: PDF, Images (JPG, PNG, GIF, WebP), Text (TXT, MD), Documents (DOC, DOCX), Presentations (PPT, PPTX)"
       }));
-      return;
+      return false;
     }
 
     // Create preview for images
@@ -121,6 +130,34 @@ export default function Upload() {
       const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
       setValue("title", nameWithoutExt);
     }
+
+    return true;
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    validateAndSetFile(file);
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+      validateAndSetFile(files[0]);
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
   };
 
   const clearFile = () => {
@@ -234,26 +271,30 @@ export default function Upload() {
                 </CardHeader>
                 <CardContent>
                   {!fileState.file ? (
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
-                      <UploadIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">Choose a file to upload</h3>
+                    <div 
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-all duration-200 cursor-pointer group"
+                      onDrop={handleDrop}
+                      onDragOver={handleDragOver}
+                      onDragEnter={handleDragEnter}
+                      onClick={() => document.getElementById('file-upload')?.click()}
+                    >
+                      <UploadIcon className="h-12 w-12 text-gray-400 mx-auto mb-4 group-hover:text-blue-500 transition-colors" />
+                      <h3 className="text-lg font-medium mb-2">Drop files here or click to browse</h3>
                       <p className="text-gray-600 mb-4">
-                        Support for PDF, images (JPG, PNG, GIF), and text files
+                        Support for PDF, Images, Documents (DOC, PPT), Text files, and more
                       </p>
                       <Input
                         type="file"
-                        accept=".pdf,.jpg,.jpeg,.png,.gif,.txt"
+                        accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md,.doc,.docx,.ppt,.pptx"
                         onChange={handleFileSelect}
                         className="hidden"
                         id="file-upload"
                       />
-                      <Label htmlFor="file-upload" className="cursor-pointer">
-                        <Button type="button" className="mb-2">
-                          <Paperclip className="h-4 w-4 mr-2" />
-                          Browse Files
-                        </Button>
-                      </Label>
-                      <p className="text-sm text-gray-500">Maximum file size: 10MB</p>
+                      <Button type="button" className="mb-2 pointer-events-none">
+                        <Paperclip className="h-4 w-4 mr-2" />
+                        Browse Files
+                      </Button>
+                      <p className="text-sm text-gray-500">Maximum file size: 25MB</p>
                     </div>
                   ) : (
                     <div className="space-y-4">

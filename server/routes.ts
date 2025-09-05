@@ -40,18 +40,30 @@ const storageConfig = multer.diskStorage({
 const upload = multer({
   storage: storageConfig,
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|pdf|txt|doc|docx/;
+    const allowedTypes = /jpeg|jpg|png|gif|webp|pdf|txt|md|doc|docx|ppt|pptx/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    
+    // Enhanced MIME type checking
+    const allowedMimeTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      'application/pdf',
+      'text/plain', 'text/markdown',
+      'application/msword', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    ];
+    
+    const mimetypeValid = allowedMimeTypes.includes(file.mimetype) || file.mimetype.startsWith('text/');
 
-    if (mimetype && extname) {
+    if (mimetypeValid && extname) {
       return cb(null, true);
     } else {
-      cb(new Error('Only PDF, images, and text files are allowed!'));
+      cb(new Error('Supported file types: PDF, Images (JPG, PNG, GIF, WebP), Text (TXT, MD), Documents (DOC, DOCX), Presentations (PPT, PPTX)'));
     }
   },
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 25 * 1024 * 1024, // 25MB limit
   }
 });
 
@@ -209,24 +221,161 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
-  // Get all notes
+  // Enhanced search endpoint with advanced filtering
   app.get("/api/notes", async (req, res) => {
     try {
-      const { subject, search } = req.query;
+      const { 
+        search, subject, fileType, professor, course, semester, 
+        minRating, sortBy, tags, page = "1", limit = "20" 
+      } = req.query;
       
-      let notes;
+      let notes = await storage.getAllNotes();
+      
+      // Apply filters
       if (search && typeof search === 'string') {
-        notes = await storage.searchNotes(search);
-      } else if (subject && typeof subject === 'string') {
-        notes = await storage.getNotesBySubject(subject);
-      } else {
-        notes = await storage.getAllNotes();
+        const searchTerm = search.toLowerCase();
+        notes = notes.filter(note => 
+          note.title.toLowerCase().includes(searchTerm) ||
+          note.description?.toLowerCase().includes(searchTerm) ||
+          note.subject.toLowerCase().includes(searchTerm) ||
+          note.course?.toLowerCase().includes(searchTerm) ||
+          note.professor?.toLowerCase().includes(searchTerm) ||
+          (note.tags && note.tags.some(tag => tag.toLowerCase().includes(searchTerm)))
+        );
       }
       
-      res.json(notes);
+      if (subject && typeof subject === 'string' && subject !== 'All Subjects') {
+        notes = notes.filter(note => note.subject === subject);
+      }
+      
+      if (fileType && typeof fileType === 'string' && fileType !== 'All Types') {
+        const typeMap: { [key: string]: string } = {
+          'PDF': 'pdf',
+          'Image': 'image',
+          'Document': 'text',
+          'Presentation': 'pdf',
+          'Text': 'text'
+        };
+        const mappedType = typeMap[fileType];
+        if (mappedType) {
+          notes = notes.filter(note => note.fileType === mappedType);
+        }
+      }
+      
+      if (professor && typeof professor === 'string') {
+        notes = notes.filter(note => 
+          note.professor?.toLowerCase().includes(professor.toLowerCase())
+        );
+      }
+      
+      if (course && typeof course === 'string') {
+        notes = notes.filter(note => 
+          note.course?.toLowerCase().includes(course.toLowerCase())
+        );
+      }
+      
+      if (semester && typeof semester === 'string' && semester !== 'All Semesters') {
+        notes = notes.filter(note => note.semester === semester);
+      }
+      
+      if (minRating && typeof minRating === 'string') {
+        const minRatingNum = parseFloat(minRating);
+        notes = notes.filter(note => parseFloat(note.rating || '0') >= minRatingNum);
+      }
+      
+      if (tags && typeof tags === 'string') {
+        const tagArray = tags.split(',').map(tag => tag.trim().toLowerCase());
+        notes = notes.filter(note => 
+          note.tags && tagArray.some(tag => 
+            note.tags.some(noteTag => noteTag.toLowerCase().includes(tag))
+          )
+        );
+      }
+      
+      // Apply sorting
+      if (sortBy && typeof sortBy === 'string') {
+        switch (sortBy) {
+          case 'date':
+            notes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            break;
+          case 'rating':
+            notes.sort((a, b) => parseFloat(b.rating || '0') - parseFloat(a.rating || '0'));
+            break;
+          case 'downloads':
+            notes.sort((a, b) => b.downloads - a.downloads);
+            break;
+          case 'views':
+            notes.sort((a, b) => b.views - a.views);
+            break;
+          default: // relevance
+            // Keep current order (already sorted by date from getAllNotes)
+            break;
+        }
+      }
+      
+      // Pagination
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const startIndex = (pageNum - 1) * limitNum;
+      const endIndex = startIndex + limitNum;
+      
+      const paginatedNotes = notes.slice(startIndex, endIndex);
+      
+      res.json({
+        notes: paginatedNotes,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total: notes.length,
+          totalPages: Math.ceil(notes.length / limitNum)
+        }
+      });
     } catch (error) {
       console.error('Error fetching notes:', error);
       res.status(500).json({ message: "Failed to fetch notes" });
+    }
+  });
+
+  // Search suggestions endpoint
+  app.get("/api/search/suggestions", async (req, res) => {
+    try {
+      const { query } = req.query;
+      if (!query || typeof query !== 'string' || query.length < 2) {
+        return res.json([]);
+      }
+      
+      const allNotes = await storage.getAllNotes();
+      const suggestions = new Set<string>();
+      
+      // Add matching titles, subjects, courses, and professors
+      allNotes.forEach(note => {
+        const searchTerm = query.toLowerCase();
+        
+        if (note.title.toLowerCase().includes(searchTerm)) {
+          suggestions.add(note.title);
+        }
+        if (note.subject.toLowerCase().includes(searchTerm)) {
+          suggestions.add(note.subject);
+        }
+        if (note.course && note.course.toLowerCase().includes(searchTerm)) {
+          suggestions.add(note.course);
+        }
+        if (note.professor && note.professor.toLowerCase().includes(searchTerm)) {
+          suggestions.add(note.professor);
+        }
+        if (note.tags) {
+          note.tags.forEach(tag => {
+            if (tag.toLowerCase().includes(searchTerm)) {
+              suggestions.add(tag);
+            }
+          });
+        }
+      });
+      
+      res.json(Array.from(suggestions).slice(0, 8));
+    } catch (error) {
+      console.error('Error fetching search suggestions:', error);
+      res.status(500).json({ message: "Failed to fetch suggestions" });
     }
   });
 
@@ -238,6 +387,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching featured notes:', error);
       res.status(500).json({ message: "Failed to fetch featured notes" });
+    }
+  });
+
+  // Get trending notes (most downloaded/viewed in the last week)
+  app.get("/api/notes/trending", async (req, res) => {
+    try {
+      const allNotes = await storage.getAllNotes();
+      
+      // Calculate trending score based on recent activity
+      const trendingNotes = allNotes
+        .map(note => ({
+          ...note,
+          trendingScore: (note.downloads * 2) + note.views + (parseFloat(note.rating || '0') * 10)
+        }))
+        .sort((a, b) => b.trendingScore - a.trendingScore)
+        .slice(0, 12);
+      
+      res.json(trendingNotes);
+    } catch (error) {
+      console.error('Error fetching trending notes:', error);
+      res.status(500).json({ message: "Failed to fetch trending notes" });
+    }
+  });
+
+  // Get personalized recommendations
+  app.get("/api/notes/recommendations", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const userNotes = await storage.getNotesByUser(userId);
+      const allNotes = await storage.getAllNotes();
+      
+      // Get user's subjects and interests
+      const userSubjects = [...new Set(userNotes.map(note => note.subject))];
+      const userTags = [...new Set(userNotes.flatMap(note => note.tags || []))];
+      
+      // Filter out user's own notes and get recommendations
+      const recommendations = allNotes
+        .filter(note => note.uploaderId !== userId)
+        .map(note => {
+          let score = 0;
+          
+          // Score based on subject match
+          if (userSubjects.includes(note.subject)) {
+            score += 10;
+          }
+          
+          // Score based on tag similarity
+          const noteTagsLower = (note.tags || []).map(tag => tag.toLowerCase());
+          const userTagsLower = userTags.map(tag => tag.toLowerCase());
+          const tagMatches = noteTagsLower.filter(tag => 
+            userTagsLower.some(userTag => userTag.includes(tag) || tag.includes(userTag))
+          ).length;
+          score += tagMatches * 5;
+          
+          // Boost high-rated notes
+          score += parseFloat(note.rating || '0') * 2;
+          
+          // Boost popular notes
+          score += Math.log(note.downloads + 1) + Math.log(note.views + 1);
+          
+          return { ...note, recommendationScore: score };
+        })
+        .filter(note => note.recommendationScore > 0)
+        .sort((a, b) => b.recommendationScore - a.recommendationScore)
+        .slice(0, 15);
+      
+      res.json(recommendations);
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+      res.status(500).json({ message: "Failed to fetch recommendations" });
+    }
+  });
+
+  // Get related notes for a specific note
+  app.get("/api/notes/:id/related", async (req, res) => {
+    try {
+      const noteId = req.params.id;
+      const currentNote = await storage.getNote(noteId);
+      
+      if (!currentNote) {
+        return res.status(404).json({ message: "Note not found" });
+      }
+      
+      const allNotes = await storage.getAllNotes();
+      
+      // Find related notes based on subject, tags, course, professor
+      const relatedNotes = allNotes
+        .filter(note => note.id !== noteId)
+        .map(note => {
+          let similarity = 0;
+          
+          // Same subject
+          if (note.subject === currentNote.subject) similarity += 5;
+          
+          // Same course
+          if (note.course && currentNote.course && note.course === currentNote.course) similarity += 8;
+          
+          // Same professor
+          if (note.professor && currentNote.professor && note.professor === currentNote.professor) similarity += 6;
+          
+          // Tag similarity
+          if (note.tags && currentNote.tags) {
+            const noteTagsLower = note.tags.map(tag => tag.toLowerCase());
+            const currentTagsLower = currentNote.tags.map(tag => tag.toLowerCase());
+            const commonTags = noteTagsLower.filter(tag => currentTagsLower.includes(tag)).length;
+            similarity += commonTags * 3;
+          }
+          
+          // Title similarity (simple word matching)
+          const noteTitleWords = note.title.toLowerCase().split(' ');
+          const currentTitleWords = currentNote.title.toLowerCase().split(' ');
+          const commonWords = noteTitleWords.filter(word => 
+            word.length > 3 && currentTitleWords.includes(word)
+          ).length;
+          similarity += commonWords * 2;
+          
+          return { ...note, similarity };
+        })
+        .filter(note => note.similarity > 0)
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, 6);
+      
+      res.json(relatedNotes);
+    } catch (error) {
+      console.error('Error fetching related notes:', error);
+      res.status(500).json({ message: "Failed to fetch related notes" });
     }
   });
 

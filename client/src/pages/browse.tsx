@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Filter, Grid, List, BookOpen, TrendingUp, Star } from "lucide-react";
+import { Search, Filter, Grid, List, BookOpen, TrendingUp, Star, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,8 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { NoteCard } from "@/components/note-card";
 import { EnhancedSearch, type SearchFilters } from "@/components/search/enhanced-search";
+import { TrendingNotes } from "@/components/trending-notes";
+import { PersonalizedRecommendations } from "@/components/personalized-recommendations";
 import { NoteCardSkeleton } from "@/components/ui/skeletons";
-import { getNotes, getFeaturedNotes, getRecentNotes } from "@/lib/api";
+import { searchNotes, getFeaturedNotes, getRecentNotes, getSearchSuggestions } from "@/lib/api";
 import type { NoteWithUploader } from "@shared/schema";
 
 const subjects = [
@@ -25,39 +27,78 @@ const popularTags = [
 ];
 
 export default function Browse() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSubject, setSelectedSubject] = useState("");
+  const [searchFilters, setSearchFilters] = useState<SearchFilters>({
+    query: "",
+    subjects: [],
+    fileTypes: [],
+    dateRange: {},
+    minRating: 0,
+    minDownloads: 0,
+    sortBy: "relevance",
+    sortOrder: "desc",
+  });
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [activeTab, setActiveTab] = useState("all");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
 
-  // Queries
-  const { data: allNotes = [], isLoading: loadingAll } = useQuery({
-    queryKey: ["/api/notes", { search: searchQuery, subject: selectedSubject }],
-    queryFn: () => getNotes({ 
-      search: searchQuery || undefined, 
-      subject: selectedSubject || undefined 
+  // Debounced search suggestions
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (searchFilters.query.length >= 2) {
+        try {
+          const newSuggestions = await getSearchSuggestions(searchFilters.query);
+          setSuggestions(newSuggestions);
+        } catch (error) {
+          setSuggestions([]);
+        }
+      } else {
+        setSuggestions([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchFilters.query]);
+
+  // Enhanced search query
+  const { data: searchResults, isLoading: loadingSearch } = useQuery({
+    queryKey: ["/api/notes/search", searchFilters],
+    queryFn: () => searchNotes({
+      search: searchFilters.query || undefined,
+      subject: searchFilters.subjects.length > 0 ? searchFilters.subjects[0] : undefined,
+      fileType: searchFilters.fileTypes.length > 0 ? searchFilters.fileTypes[0] : undefined,
+      minRating: searchFilters.minRating > 0 ? searchFilters.minRating : undefined,
+      sortBy: searchFilters.sortBy,
+      page: 1,
+      limit: 20
     }),
+    enabled: activeTab === "all"
   });
 
   const { data: featuredNotes = [], isLoading: loadingFeatured } = useQuery({
     queryKey: ["/api/notes/featured"],
     queryFn: getFeaturedNotes,
+    enabled: activeTab === "featured"
   });
 
   const { data: recentNotes = [], isLoading: loadingRecent } = useQuery({
     queryKey: ["/api/notes/recent"],
     queryFn: getRecentNotes,
+    enabled: activeTab === "recent"
   });
 
   const handleSearch = (filters: SearchFilters) => {
-    setSearchQuery(filters.query);
-    setSelectedSubject(filters.subjects[0] || "");
-    // In a real app, you'd apply all filters
-    console.log("Applied filters:", filters);
+    setSearchFilters(filters);
+    setActiveTab("all");
   };
 
   const handleSubjectClick = (subject: string) => {
-    setSelectedSubject(selectedSubject === subject ? "" : subject);
+    const newFilters = {
+      ...searchFilters,
+      subjects: searchFilters.subjects.includes(subject) 
+        ? searchFilters.subjects.filter(s => s !== subject)
+        : [subject]
+    };
+    setSearchFilters(newFilters);
     setActiveTab("all");
   };
 
@@ -67,8 +108,12 @@ export default function Browse() {
         return { notes: featuredNotes, loading: loadingFeatured };
       case "recent":
         return { notes: recentNotes, loading: loadingRecent };
+      case "trending":
+        return { notes: [], loading: false }; // Handled separately by TrendingNotes component
+      case "recommendations":
+        return { notes: [], loading: false }; // Handled separately by PersonalizedRecommendations component
       default:
-        return { notes: allNotes, loading: loadingAll };
+        return { notes: searchResults?.notes || [], loading: loadingSearch };
     }
   };
 
@@ -178,10 +223,12 @@ export default function Browse() {
             {/* Tabs and Controls */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
-                <TabsList>
+                <TabsList className="grid grid-cols-5">
                   <TabsTrigger value="all">All Notes</TabsTrigger>
                   <TabsTrigger value="featured">Featured</TabsTrigger>
                   <TabsTrigger value="recent">Recent</TabsTrigger>
+                  <TabsTrigger value="trending">Trending</TabsTrigger>
+                  <TabsTrigger value="recommendations">For You</TabsTrigger>
                 </TabsList>
               </Tabs>
 
@@ -225,13 +272,16 @@ export default function Browse() {
                   {selectedSubject && ` in ${selectedSubject}`}
                   {searchQuery && ` for "${searchQuery}"`}
                 </p>
-                {(selectedSubject || searchQuery) && (
+                {(searchFilters.subjects.length > 0 || searchFilters.query) && (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      setSelectedSubject("");
-                      setSearchQuery("");
+                      setSearchFilters({
+                        ...searchFilters,
+                        query: "",
+                        subjects: []
+                      });
                     }}
                   >
                     Clear Filters
@@ -241,7 +291,7 @@ export default function Browse() {
             </div>
 
             {/* Notes Grid/List */}
-            <TabsContent value={activeTab} className="mt-0">
+            <TabsContent value="all" className="mt-0">
               {loading ? (
                 <div className={viewMode === "grid" 
                   ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" 
@@ -259,7 +309,7 @@ export default function Browse() {
                       No notes found
                     </h3>
                     <p className="text-gray-600 mb-4">
-                      {searchQuery || selectedSubject 
+                      {searchFilters.query || searchFilters.subjects.length > 0
                         ? "Try adjusting your search criteria"
                         : "Be the first to share notes in this category"
                       }
@@ -280,6 +330,46 @@ export default function Browse() {
                   ))}
                 </div>
               )}
+            </TabsContent>
+            
+            <TabsContent value="featured" className="mt-0">
+              {loadingFeatured ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <NoteCardSkeleton key={i} />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {featuredNotes.map((note) => (
+                    <NoteCard key={note.id} note={note} />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="recent" className="mt-0">
+              {loadingRecent ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <NoteCardSkeleton key={i} />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {recentNotes.map((note) => (
+                    <NoteCard key={note.id} note={note} />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="trending" className="mt-0">
+              <TrendingNotes limit={12} showHeader={false} />
+            </TabsContent>
+            
+            <TabsContent value="recommendations" className="mt-0">
+              <PersonalizedRecommendations limit={12} showHeader={false} />
             </TabsContent>
           </div>
         </div>

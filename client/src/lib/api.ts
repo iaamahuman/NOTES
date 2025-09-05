@@ -97,3 +97,67 @@ export async function removeBookmark(noteId: string) {
   const response = await apiRequest("DELETE", `/api/bookmarks/${noteId}`);
   return response.json();
 }
+
+// Enhanced search with advanced filtering
+export async function searchNotes(params: {
+  search?: string;
+  subject?: string;
+  fileType?: string;
+  professor?: string;
+  course?: string;
+  semester?: string;
+  minRating?: number;
+  sortBy?: string;
+  tags?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{
+  notes: NoteWithUploader[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}> {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      searchParams.append(key, value.toString());
+    }
+  });
+  
+  const response = await fetch(`/api/notes?${searchParams.toString()}`);
+  if (!response.ok) throw new Error('Failed to search notes');
+  return response.json();
+}
+
+// Search suggestions
+export async function getSearchSuggestions(query: string): Promise<string[]> {
+  if (query.length < 2) return [];
+  
+  const response = await fetch(`/api/search/suggestions?query=${encodeURIComponent(query)}`);
+  if (!response.ok) throw new Error('Failed to fetch suggestions');
+  return response.json();
+}
+
+// Trending notes
+export async function getTrendingNotes(): Promise<NoteWithUploader[]> {
+  const response = await fetch('/api/notes/trending');
+  if (!response.ok) throw new Error('Failed to fetch trending notes');
+  return response.json();
+}
+
+// Personalized recommendations
+export async function getPersonalizedRecommendations(): Promise<NoteWithUploader[]> {
+  const response = await fetch('/api/notes/recommendations');
+  if (!response.ok) throw new Error('Failed to fetch recommendations');
+  return response.json();
+}
+
+// Related notes for a specific note
+export async function getRelatedNotes(noteId: string): Promise<NoteWithUploader[]> {
+  const response = await fetch(`/api/notes/${noteId}/related`);
+  if (!response.ok) throw new Error('Failed to fetch related notes');
+  return response.json();
+}
