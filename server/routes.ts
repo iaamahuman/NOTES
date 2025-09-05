@@ -287,7 +287,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const tagArray = tags.split(',').map(tag => tag.trim().toLowerCase());
         notes = notes.filter(note => 
           note.tags && tagArray.some(tag => 
-            note.tags.some(noteTag => noteTag.toLowerCase().includes(tag))
+            note.tags!.some(noteTag => noteTag.toLowerCase().includes(tag))
           )
         );
       }
@@ -423,8 +423,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allNotes = await storage.getAllNotes();
       
       // Get user's subjects and interests
-      const userSubjects = [...new Set(userNotes.map(note => note.subject))];
-      const userTags = [...new Set(userNotes.flatMap(note => note.tags || []))];
+      const userSubjects = Array.from(new Set(userNotes.map(note => note.subject)));
+      const userTags = Array.from(new Set(userNotes.flatMap(note => note.tags || [])));
       
       // Filter out user's own notes and get recommendations
       const recommendations = allNotes

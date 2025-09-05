@@ -1,0 +1,15 @@
+# Sample Mathematical Notes
+
+## Integration Techniques
+
+### Integration by Parts
+The formula for integration by parts is:
+∫ u dv = uv - ∫ v du
+
+### Example Problems
+1. ∫ x e^x dx
+2. ∫ ln(x) dx
+3. ∫ x sin(x) dx
+
+### Practice Solutions
+Solutions available in class notes...

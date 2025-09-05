@@ -5,16 +5,16 @@
 :root {
   --background: hsl(0 0% 100%);
   --foreground: hsl(210 25% 7.8431%);
-  --card: hsl(180 6.6667% 97.0588%);
+  --card: hsl(0 0% 100%);
   --card-foreground: hsl(210 25% 7.8431%);
   --popover: hsl(0 0% 100%);
   --popover-foreground: hsl(210 25% 7.8431%);
-  --primary: hsl(238.4211 87.3665% 59.2157%);
+  --primary: hsl(221 83% 53%);
   --primary-foreground: hsl(0 0% 100%);
-  --secondary: hsl(160.4478 85.7143% 39.0196%);
-  --secondary-foreground: hsl(0 0% 100%);
-  --accent: hsl(45.9459 92.8571% 52.5490%);
-  --accent-foreground: hsl(0 0% 0%);
+  --secondary: hsl(210 40% 98%);
+  --secondary-foreground: hsl(222.2 84% 4.9%);
+  --accent: hsl(24 100% 50%);
+  --accent-foreground: hsl(0 0% 100%);
   --muted: hsl(210 40% 96%);
   --muted-foreground: hsl(210 8% 45%);
   --destructive: hsl(356.3033 90.5579% 54.3137%);
