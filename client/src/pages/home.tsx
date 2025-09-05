@@ -24,13 +24,15 @@ export default function Home() {
     queryFn: getRecentNotes,
   });
 
-  const { data: allNotes = [], isLoading: isLoadingAll } = useQuery({
+  const { data: allNotesResponse, isLoading: isLoadingAll } = useQuery({
     queryKey: ["/api/notes", { subject: selectedSubject !== "All" ? selectedSubject : undefined, search: searchQuery || undefined }],
     queryFn: () => getNotes({
       subject: selectedSubject !== "All" ? selectedSubject : undefined,
       search: searchQuery || undefined,
     }),
   });
+
+  const allNotes = allNotesResponse?.notes || [];
 
   const subjects = [
     "All",

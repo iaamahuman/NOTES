@@ -16,7 +16,15 @@ export async function downloadNote(id: string) {
   window.open(`/api/notes/${id}/download`, '_blank');
 }
 
-export async function getNotes(params?: { subject?: string; search?: string }): Promise<NoteWithUploader[]> {
+export async function getNotes(params?: { subject?: string; search?: string }): Promise<{
+  notes: NoteWithUploader[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}> {
   const searchParams = new URLSearchParams();
   if (params?.subject) searchParams.append('subject', params.subject);
   if (params?.search) searchParams.append('search', params.search);
