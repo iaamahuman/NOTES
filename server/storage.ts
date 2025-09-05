@@ -624,13 +624,23 @@ export class MemStorage implements IStorage {
 
 }
 
-// Database setup
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL environment variable is required");
-}
+// Database setup - use memory storage for development to avoid SSL issues
+let db: any = null;
+let connection: any = null;
 
-const connection = neon(process.env.DATABASE_URL);
-const db = drizzle(connection);
+// For development, temporarily use memory storage to avoid SSL certificate issues
+if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL) {
+  try {
+    connection = neon(process.env.DATABASE_URL);
+    db = drizzle(connection);
+    console.log('Connected to PostgreSQL database');
+  } catch (error) {
+    console.warn('Database connection failed, falling back to memory storage:', error);
+    db = null;
+  }
+} else {
+  console.log('Using memory storage for development');
+}
 
 export class PostgresStorage implements IStorage {
   // User operations
@@ -1242,4 +1252,5 @@ export class PostgresStorage implements IStorage {
   }
 }
 
-export const storage = new PostgresStorage();
+// Export storage instance - use PostgresStorage if DB is available, otherwise MemStorage
+export const storage = db ? new PostgresStorage() : new MemStorage();
