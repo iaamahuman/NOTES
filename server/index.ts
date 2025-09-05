@@ -1,29 +1,24 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
-import ConnectPgSimple from "connect-pg-simple";
+import MemoryStore from "memorystore";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
-// Session configuration
-const PgSession = ConnectPgSimple(session);
-
-// Configure PostgreSQL session store
-const sessionStore = new PgSession({
-  conString: process.env.DATABASE_URL,
-  tableName: 'user_sessions',
-  createTableIfMissing: true,
-});
+// Session configuration - use memory store for development
+const MemStore = MemoryStore(session);
 
 app.use(session({
-  store: sessionStore,
+  store: new MemStore({
+    checkPeriod: 86400000, // prune expired entries every 24h
+  }),
   name: 'quill.sid',
   secret: process.env.SESSION_SECRET || 'fallback-secret-key-for-development',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: false, // Allow non-HTTPS in development
     httpOnly: true,
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
   },
