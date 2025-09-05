@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Header } from "@/components/header";
 import { NoteCard } from "@/components/note-card";
 import { UploadModal } from "@/components/upload-modal";
-import { getFeaturedNotes, getRecentNotes, getNotes } from "@/lib/api";
+import { getFeaturedNotes, getRecentNotes, getNotes, getPlatformStats } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Home() {
@@ -30,6 +30,11 @@ export default function Home() {
       subject: selectedSubject !== "All" ? selectedSubject : undefined,
       search: searchQuery || undefined,
     }),
+  });
+
+  const { data: platformStats, isLoading: isLoadingStats } = useQuery({
+    queryKey: ["/api/platform/stats"],
+    queryFn: getPlatformStats,
   });
 
   const allNotes = allNotesResponse?.notes || [];
@@ -108,19 +113,35 @@ export default function Home() {
           {/* Quick Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-12 pt-8 border-t border-purple-400">
             <div className="text-center" data-testid="stat-notes">
-              <div className="text-3xl font-bold">{allNotes.length.toLocaleString()}</div>
+              {isLoadingStats ? (
+                <Skeleton className="h-9 w-16 mx-auto mb-2 bg-purple-200" />
+              ) : (
+                <div className="text-3xl font-bold">{(platformStats?.notesShared ?? 0).toLocaleString()}</div>
+              )}
               <div className="text-purple-200">Notes Shared</div>
             </div>
             <div className="text-center" data-testid="stat-users">
-              <div className="text-3xl font-bold">3,291</div>
+              {isLoadingStats ? (
+                <Skeleton className="h-9 w-16 mx-auto mb-2 bg-purple-200" />
+              ) : (
+                <div className="text-3xl font-bold">{(platformStats?.activeStudents ?? 0).toLocaleString()}</div>
+              )}
               <div className="text-purple-200">Active Students</div>
             </div>
             <div className="text-center" data-testid="stat-subjects">
-              <div className="text-3xl font-bold">156</div>
+              {isLoadingStats ? (
+                <Skeleton className="h-9 w-16 mx-auto mb-2 bg-purple-200" />
+              ) : (
+                <div className="text-3xl font-bold">{(platformStats?.subjects ?? 0).toLocaleString()}</div>
+              )}
               <div className="text-purple-200">Subjects</div>
             </div>
             <div className="text-center" data-testid="stat-universities">
-              <div className="text-3xl font-bold">89</div>
+              {isLoadingStats ? (
+                <Skeleton className="h-9 w-16 mx-auto mb-2 bg-purple-200" />
+              ) : (
+                <div className="text-3xl font-bold">{(platformStats?.universities ?? 0).toLocaleString()}</div>
+              )}
               <div className="text-purple-200">Universities</div>
             </div>
           </div>

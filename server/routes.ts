@@ -68,6 +68,54 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Platform statistics endpoint
+  app.get("/api/platform/stats", async (req, res) => {
+    try {
+      const allNotes = await storage.getAllNotes();
+      
+      // Count active students - we need to add a method to get user count
+      // For now, we'll use a workaround to get all users efficiently
+      let activeStudentsCount = 0;
+      if (storage instanceof storage.constructor && (storage as any).users) {
+        activeStudentsCount = (storage as any).users.size;
+      }
+
+      // Count unique subjects from notes
+      const uniqueSubjects = new Set(allNotes.map(note => note.subject));
+      const subjectsCount = uniqueSubjects.size;
+
+      // Count unique universities from notes' uploaders
+      const uniqueUniversities = new Set();
+      for (const note of allNotes) {
+        const uploader = note.uploader;
+        // If uploader info is included in note response, get university from there
+        // Otherwise we'd need to fetch each user profile, which we'll optimize later
+      }
+      
+      // For now, count universities by checking user profiles efficiently
+      let universitiesCount = 0;
+      if (storage instanceof storage.constructor && (storage as any).users) {
+        const users = Array.from((storage as any).users.values());
+        const universities = new Set(
+          users
+            .filter(user => user.university)
+            .map(user => user.university)
+        );
+        universitiesCount = universities.size;
+      }
+
+      res.json({
+        notesShared: allNotes.length,
+        activeStudents: activeStudentsCount,
+        subjects: subjectsCount,
+        universities: universitiesCount
+      });
+    } catch (error) {
+      console.error('Error fetching platform stats:', error);
+      res.status(500).json({ message: "Failed to fetch platform statistics" });
+    }
+  });
+
   // Auth routes
   app.post("/api/auth/signup", async (req, res) => {
     try {

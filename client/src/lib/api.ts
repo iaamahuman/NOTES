@@ -7,6 +7,20 @@ import type {
   InsertComment 
 } from "@shared/schema";
 
+// Platform statistics functions
+export async function getPlatformStats(): Promise<{
+  notesShared: number;
+  activeStudents: number;
+  subjects: number;
+  universities: number;
+}> {
+  const response = await fetch('/api/platform/stats');
+  if (!response.ok) {
+    throw new Error('Failed to fetch platform statistics');
+  }
+  return response.json();
+}
+
 export async function uploadNote(formData: FormData) {
   const response = await apiRequest("POST", "/api/notes", formData);
   return response.json();
