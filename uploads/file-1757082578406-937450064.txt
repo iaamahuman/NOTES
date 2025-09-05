@@ -1,0 +1,84 @@
+Physics 104: Quantum Mechanics Notes
+====================================
+
+Course: Introduction to Quantum Mechanics
+Semester: Fall 2024
+Professor: Dr. Richard Feynman Jr.
+University: Stanford University
+
+Chapter 1: Wave-Particle Duality
+---------------------------------
+
+1. Historical Background
+   - Max Planck's blackbody radiation (1900)
+   - Einstein's photoelectric effect (1905)
+   - de Broglie wavelength λ = h/p
+
+2. Key Experiments
+   - Double-slit experiment with electrons
+   - Demonstrates wave-particle duality
+   - Measurement affects the outcome (observer effect)
+
+3. Wave Function ψ(x,t)
+   - Complex-valued function describing quantum state
+   - |ψ(x,t)|² gives probability density
+   - Normalization condition: ∫|ψ|²dx = 1
+
+Schrödinger Equation
+-------------------
+
+Time-dependent: iℏ ∂ψ/∂t = Ĥψ
+Time-independent: Ĥψ = Eψ
+
+Where:
+- ℏ = h/2π (reduced Planck constant)
+- Ĥ = Hamiltonian operator
+- E = energy eigenvalue
+
+Fundamental Principles
+---------------------
+
+1. Uncertainty Principle
+   Δx · Δp ≥ ℏ/2
+   - Position and momentum cannot be simultaneously measured with perfect precision
+
+2. Superposition Principle
+   - Quantum states can exist in superposition
+   - ψ = c₁ψ₁ + c₂ψ₂ + ... + cₙψₙ
+   - |c₁|² + |c₂|² + ... + |cₙ|² = 1
+
+3. Measurement Postulate
+   - Measurement collapses the wave function
+   - Probability of measuring eigenvalue λᵢ is |cᵢ|²
+
+Simple Systems
+--------------
+
+1. Particle in a Box
+   - Infinite potential walls
+   - Energy levels: Eₙ = n²π²ℏ²/(2mL²)
+   - Wave functions: ψₙ(x) = √(2/L) sin(nπx/L)
+
+2. Harmonic Oscillator
+   - V(x) = ½mω²x²
+   - Energy levels: Eₙ = ℏω(n + ½)
+   - Ground state: ψ₀(x) ∝ exp(-mωx²/2ℏ)
+
+Applications
+------------
+- Quantum tunneling in electronics
+- Laser physics and stimulated emission
+- Quantum computing and qubits
+- Nuclear magnetic resonance (NMR)
+
+Problem Sets:
+- Calculate expectation values for position and momentum
+- Solve time-evolution of Gaussian wave packets
+- Analyze tunneling through potential barriers
+- Compute energy eigenvalues for various potentials
+
+Key Concepts for Midterm:
+✓ Normalization of wave functions
+✓ Expectation values and uncertainties
+✓ Ehrenfest theorem
+✓ Commutator relations [x̂,p̂] = iℏ

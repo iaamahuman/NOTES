@@ -1,0 +1,140 @@
+Biology 101: Cell Biology Study Guide
+=====================================
+
+Course: Introduction to Cell Biology
+Semester: Spring 2024
+Professor: Dr. Maria Rodriguez
+Topic: Cell Structure and Function
+
+Prokaryotic vs Eukaryotic Cells
+-------------------------------
+
+Prokaryotes (Bacteria & Archaea):
+- No membrane-bound nucleus
+- Genetic material freely floating in cytoplasm
+- Simple internal structure
+- Ribosomes: 70S (30S + 50S subunits)
+- Cell wall present (peptidoglycan in bacteria)
+
+Eukaryotes (Animals, Plants, Fungi, Protists):
+- Membrane-bound nucleus
+- Complex organelle system
+- Ribosomes: 80S (40S + 60S subunits)
+- Endomembrane system present
+
+Major Organelles and Functions
+------------------------------
+
+1. Nucleus
+   - Control center of the cell
+   - Contains DNA organized into chromosomes
+   - Nuclear envelope with nuclear pores
+   - Nucleolus: ribosome assembly site
+
+2. Endoplasmic Reticulum (ER)
+   - Rough ER: studded with ribosomes, protein synthesis
+   - Smooth ER: lipid synthesis, detoxification
+   - Continuous with nuclear envelope
+
+3. Golgi Apparatus
+   - Modifies, packages, and ships proteins
+   - Cis face (receives from ER) → Trans face (ships out)
+   - Forms lysosomes and secretory vesicles
+
+4. Mitochondria
+   - Powerhouse of the cell
+   - ATP synthesis via cellular respiration
+   - Double membrane structure
+   - Contains own DNA and ribosomes
+
+5. Ribosomes
+   - Protein synthesis machinery
+   - Two subunits: large and small
+   - Free ribosomes: cytoplasmic proteins
+   - Bound ribosomes: membrane/secreted proteins
+
+6. Lysosomes (Animal cells)
+   - Digestive organelles
+   - Contain hydrolytic enzymes
+   - Autophagy and phagocytosis
+   - pH ~4.5 (acidic environment)
+
+Plant-Specific Organelles
+------------------------
+
+1. Chloroplasts
+   - Site of photosynthesis
+   - Thylakoid membranes contain chlorophyll
+   - Stroma: site of Calvin cycle
+   - Double membrane structure
+
+2. Vacuoles
+   - Large central vacuole for turgor pressure
+   - Storage of water, ions, and metabolites
+   - Maintains cell structure and rigidity
+
+3. Cell Wall
+   - Cellulose-based structural support
+   - Provides protection and shape
+   - Plasmodesmata: connections between cells
+
+Cytoskeleton Components
+-----------------------
+
+1. Microfilaments (Actin)
+   - Thinnest fibers (~7 nm)
+   - Cell shape and movement
+   - Muscle contraction
+
+2. Intermediate Filaments
+   - Medium size (~10 nm)
+   - Structural support
+   - Nuclear lamins, keratins
+
+3. Microtubules (Tubulin)
+   - Largest fibers (~25 nm)
+   - Organize organelles
+   - Form cilia and flagella
+   - Mitotic spindle formation
+
+Cell Transport Mechanisms
+-------------------------
+
+Passive Transport:
+- Diffusion: high to low concentration
+- Osmosis: water movement across membrane
+- Facilitated diffusion: channel/carrier proteins
+
+Active Transport:
+- Primary: directly uses ATP (Na+/K+ pump)
+- Secondary: uses electrochemical gradient
+- Endocytosis: bringing materials into cell
+- Exocytosis: expelling materials from cell
+
+Membrane Structure
+------------------
+
+Fluid Mosaic Model:
+- Phospholipid bilayer
+- Embedded proteins (integral and peripheral)
+- Cholesterol modulates fluidity
+- Glycoproteins and glycolipids (cell recognition)
+
+Key Properties:
+- Selective permeability
+- Maintains concentration gradients
+- Signal transduction capability
+
+Laboratory Techniques
+--------------------
+- Light microscopy (up to 1000x magnification)
+- Electron microscopy (TEM and SEM)
+- Cell fractionation and centrifugation
+- Fluorescence labeling of organelles
+
+Study Questions:
+1. Compare structure and function of rough vs smooth ER
+2. Explain the endosymbiotic theory for mitochondria and chloroplasts
+3. Describe the pathway of protein synthesis and trafficking
+4. Analyze osmotic effects on plant and animal cells
+5. Distinguish between different types of membrane transport

@@ -1,0 +1,56 @@
+CS 161: Algorithms Study Notes
+=====================================
+
+Topic: Dynamic Programming and Graph Algorithms
+Date: Spring 2024
+Professor: Dr. Jennifer Matthews
+
+Dynamic Programming Fundamentals
+---------------------------------
+
+1. Optimal Substructure Property
+   - A problem has optimal substructure if an optimal solution contains optimal solutions to subproblems
+   - Example: Fibonacci sequence, where F(n) = F(n-1) + F(n-2)
+
+2. Overlapping Subproblems
+   - Recursive solutions revisit the same subproblems multiple times
+   - Memoization helps avoid redundant calculations
+
+Key DP Algorithms:
+-----------------
+
+1. Longest Common Subsequence (LCS)
+   - Time Complexity: O(mn)
+   - Space Complexity: O(mn) or O(min(m,n)) with optimization
+   
+2. Knapsack Problem
+   - 0/1 Knapsack: Each item can be taken at most once
+   - Unbounded Knapsack: Items can be taken multiple times
+   - Fractional Knapsack: Items can be broken into pieces
+
+Graph Algorithms
+----------------
+
+1. Dijkstra's Algorithm
+   - Single-source shortest path for non-negative edge weights
+   - Time Complexity: O((V + E) log V) with min-heap
+   
+2. Bellman-Ford Algorithm
+   - Handles negative edge weights
+   - Detects negative cycles
+   - Time Complexity: O(VE)
+
+3. Floyd-Warshall Algorithm
+   - All-pairs shortest paths
+   - Time Complexity: O(V³)
+
+Practice Problems:
+- Maximum Subarray Sum (Kadane's Algorithm)
+- Edit Distance (Levenshtein Distance)
+- Coin Change Problem
+- Traveling Salesman Problem (TSP)
+
+Study Tips:
+- Draw state transition diagrams
+- Start with recursive solutions, then optimize with memoization
+- Practice identifying optimal substructure in problems
