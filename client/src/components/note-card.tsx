@@ -1,17 +1,64 @@
-import { FileText, FileImage, Download, Eye, Star } from "lucide-react";
+import { FileText, FileImage, Download, Eye, Star, Heart, Share2, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { RatingStars } from "@/components/rating-stars";
 import type { NoteWithUploader } from "@shared/schema";
 import { downloadNote } from "@/lib/api";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 interface NoteCardProps {
   note: NoteWithUploader;
   variant?: "featured" | "compact";
+  showBookmark?: boolean;
+  isBookmarked?: boolean;
+  onBookmarkToggle?: (noteId: string) => void;
 }
 
-export function NoteCard({ note, variant = "featured" }: NoteCardProps) {
+export function NoteCard({ 
+  note, 
+  variant = "featured", 
+  showBookmark = true,
+  isBookmarked = false,
+  onBookmarkToggle 
+}: NoteCardProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  const { toast } = useToast();
+
   const handleDownload = () => {
     downloadNote(note.id);
+    toast({
+      title: "Download started",
+      description: `Downloading ${note.title}`,
+    });
+  };
+
+  const handleBookmark = () => {
+    if (onBookmarkToggle) {
+      onBookmarkToggle(note.id);
+      toast({
+        title: isBookmarked ? "Removed from bookmarks" : "Added to bookmarks",
+        description: isBookmarked ? "Note removed from your bookmarks" : "Note saved to your bookmarks",
+      });
+    }
+  };
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: note.title,
+        text: note.description || `Check out this note: ${note.title}`,
+        url: `${window.location.origin}/notes/${note.id}`,
+      });
+    } else {
+      navigator.clipboard.writeText(`${window.location.origin}/notes/${note.id}`);
+      toast({
+        title: "Link copied",
+        description: "Note link copied to clipboard",
+      });
+    }
   };
 
   const getFileIcon = () => {
@@ -43,23 +90,88 @@ export function NoteCard({ note, variant = "featured" }: NoteCardProps) {
 
   if (variant === "compact") {
     return (
-      <Card className="hover:shadow-md transition-shadow" data-testid={`note-card-compact-${note.id}`}>
+      <Card 
+        className="hover:shadow-lg transition-all duration-200 border border-gray-200 dark:border-gray-700 dark:bg-gray-800" 
+        data-testid={`note-card-compact-${note.id}`}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
         <CardContent className="p-4">
-          <div className="flex items-center space-x-2 mb-3">
-            {getFileIcon()}
-            <span className="text-sm text-gray-500">
-              {note.fileType.toUpperCase()} • {formatFileSize(note.fileSize)}
-            </span>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              {getFileIcon()}
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {note.fileType.toUpperCase()} • {formatFileSize(note.fileSize)}
+              </span>
+            </div>
+            {note.tags && note.tags.length > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {note.tags[0]}
+              </Badge>
+            )}
           </div>
-          <h4 className="font-medium text-gray-900 mb-2 line-clamp-2" data-testid={`note-title-${note.id}`}>
+          
+          <h4 className="font-medium text-gray-900 dark:text-white mb-2 line-clamp-2" data-testid={`note-title-${note.id}`}>
             {note.title}
           </h4>
-          <p className="text-sm text-gray-600 mb-3" data-testid={`note-subject-${note.id}`}>
+          
+          <p className="text-sm text-gray-600 dark:text-gray-300 mb-3" data-testid={`note-subject-${note.id}`}>
             {note.subject}
           </p>
-          <div className="flex items-center justify-between text-xs text-gray-500">
-            <span data-testid={`note-uploader-${note.id}`}>{note.uploader.username}</span>
-            <span data-testid={`note-date-${note.id}`}>{formatDate(note.createdAt)}</span>
+
+          <div className="flex items-center justify-between mb-3">
+            <RatingStars rating={parseFloat(note.rating || '0')} size="sm" readonly />
+            <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
+              <span>{note.downloads} downloads</span>
+              <span>•</span>
+              <span>{note.views} views</span>
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                {note.uploader.username.charAt(0).toUpperCase()}
+              </div>
+              <span className="text-xs text-gray-600 dark:text-gray-300" data-testid={`note-uploader-${note.id}`}>
+                {note.uploader.username}
+              </span>
+              <span className="text-xs text-gray-400">•</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400" data-testid={`note-date-${note.id}`}>
+                {formatDate(note.createdAt)}
+              </span>
+            </div>
+            
+            {isHovered && showBookmark && (
+              <div className="flex items-center space-x-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleBookmark}
+                  className="h-6 w-6 p-0"
+                  data-testid={`bookmark-button-${note.id}`}
+                >
+                  <Heart className={`h-3 w-3 ${isBookmarked ? 'fill-red-500 text-red-500' : ''}`} />
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                      <MoreVertical className="h-3 w-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={handleShare}>
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDownload}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -67,18 +179,38 @@ export function NoteCard({ note, variant = "featured" }: NoteCardProps) {
   }
 
   return (
-    <Card className="shadow-lg hover:shadow-xl transition-shadow border border-gray-100" data-testid={`note-card-featured-${note.id}`}>
+    <Card 
+      className="shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700 dark:bg-gray-800 group" 
+      data-testid={`note-card-featured-${note.id}`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center space-x-2">
             {getFileIcon()}
-            <span className="text-sm font-medium text-gray-500">
+            <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
               {note.fileType.toUpperCase()}
             </span>
+            {note.tags && note.tags.length > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {note.tags[0]}
+              </Badge>
+            )}
           </div>
-          <div className="flex items-center space-x-1 text-sm text-gray-500">
-            <Star className="text-yellow-400 h-4 w-4 fill-current" />
-            <span data-testid={`note-rating-${note.id}`}>{parseFloat(note.rating || '0').toFixed(1)}</span>
+          <div className="flex items-center space-x-2">
+            <RatingStars rating={parseFloat(note.rating || '0')} size="sm" readonly />
+            {isHovered && showBookmark && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleBookmark}
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                data-testid={`bookmark-button-${note.id}`}
+              >
+                <Heart className={`h-4 w-4 ${isBookmarked ? 'fill-red-500 text-red-500' : ''}`} />
+              </Button>
+            )}
           </div>
         </div>
 
@@ -88,14 +220,14 @@ export function NoteCard({ note, variant = "featured" }: NoteCardProps) {
           </div>
         </div>
 
-        <h3 className="font-semibold text-lg text-gray-900 mb-2 line-clamp-2" data-testid={`note-title-${note.id}`}>
+        <h3 className="font-semibold text-lg text-gray-900 dark:text-white mb-2 line-clamp-2" data-testid={`note-title-${note.id}`}>
           {note.title}
         </h3>
-        <p className="text-gray-600 text-sm mb-3 line-clamp-3" data-testid={`note-description-${note.id}`}>
+        <p className="text-gray-600 dark:text-gray-300 text-sm mb-3 line-clamp-3" data-testid={`note-description-${note.id}`}>
           {note.description || "No description available"}
         </p>
 
-        <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+        <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-4">
           <span data-testid={`note-subject-${note.id}`}>{note.subject}</span>
           <span data-testid={`note-date-${note.id}`}>{formatDate(note.createdAt)}</span>
         </div>
@@ -104,12 +236,16 @@ export function NoteCard({ note, variant = "featured" }: NoteCardProps) {
           <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
             {note.uploader.username.charAt(0).toUpperCase()}
           </div>
-          <span className="text-sm text-gray-600" data-testid={`note-uploader-${note.id}`}>
+          <span className="text-sm text-gray-600 dark:text-gray-300" data-testid={`note-uploader-${note.id}`}>
             {note.uploader.username}
           </span>
           <span className="text-sm text-gray-400">•</span>
-          <span className="text-sm text-gray-500" data-testid={`note-downloads-${note.id}`}>
+          <span className="text-sm text-gray-500 dark:text-gray-400" data-testid={`note-downloads-${note.id}`}>
             {note.downloads} downloads
+          </span>
+          <span className="text-sm text-gray-400">•</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            {note.views} views
           </span>
         </div>
 
@@ -120,7 +256,13 @@ export function NoteCard({ note, variant = "featured" }: NoteCardProps) {
           </Button>
           <Button
             variant="outline"
-            size="icon"
+            onClick={handleShare}
+            data-testid={`button-share-${note.id}`}
+          >
+            <Share2 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
             onClick={handleDownload}
             data-testid={`button-download-${note.id}`}
           >

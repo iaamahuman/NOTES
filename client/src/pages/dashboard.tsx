@@ -67,7 +67,7 @@ export default function Dashboard() {
 
   if (isLoadingProfile) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-background">
         <Header onSearchChange={() => {}} onUploadClick={() => {}} />
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="grid lg:grid-cols-4 gap-6">
@@ -103,7 +103,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-background">
       <Header onSearchChange={() => {}} onUploadClick={() => {}} />
       
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -121,15 +121,15 @@ export default function Dashboard() {
                   </Avatar>
                   
                   <div>
-                    <h2 className="text-xl font-bold" data-testid="profile-username">
+                    <h2 className="text-xl font-bold dark:text-white" data-testid="profile-username">
                       {profile?.username}
                     </h2>
-                    <p className="text-gray-600 text-sm">{profile?.university}</p>
-                    <p className="text-gray-500 text-sm">{profile?.major} • {profile?.year}</p>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm">{profile?.university}</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">{profile?.major} • {profile?.year}</p>
                   </div>
 
                   {profile?.bio && (
-                    <p className="text-sm text-gray-700 text-center" data-testid="profile-bio">
+                    <p className="text-sm text-gray-700 dark:text-gray-300 text-center" data-testid="profile-bio">
                       {profile.bio}
                     </p>
                   )}
@@ -146,7 +146,7 @@ export default function Dashboard() {
                     Edit Profile
                   </Button>
 
-                  <div className="text-center text-sm text-gray-600">
+                  <div className="text-center text-sm text-gray-600 dark:text-gray-400">
                     <p>Member since {formatDate(profile?.createdAt || new Date())}</p>
                   </div>
                 </div>
@@ -218,8 +218,8 @@ export default function Dashboard() {
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-gray-600">Total Uploads</p>
-                          <p className="text-2xl font-bold" data-testid="total-uploads">
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Uploads</p>
+                          <p className="text-2xl font-bold dark:text-white" data-testid="total-uploads">
                             {profile?.totalUploads}
                           </p>
                         </div>
@@ -232,8 +232,8 @@ export default function Dashboard() {
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-gray-600">Total Downloads</p>
-                          <p className="text-2xl font-bold" data-testid="total-downloads">
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Downloads</p>
+                          <p className="text-2xl font-bold dark:text-white" data-testid="total-downloads">
                             {profile?.totalDownloads?.toLocaleString()}
                           </p>
                         </div>
@@ -246,8 +246,8 @@ export default function Dashboard() {
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-gray-600">This Month</p>
-                          <p className="text-2xl font-bold" data-testid="month-uploads">
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">This Month</p>
+                          <p className="text-2xl font-bold dark:text-white" data-testid="month-uploads">
                             {stats?.thisMonthUploads}
                           </p>
                         </div>
@@ -260,8 +260,8 @@ export default function Dashboard() {
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-gray-600">Month Downloads</p>
-                          <p className="text-2xl font-bold" data-testid="month-downloads">
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Month Downloads</p>
+                          <p className="text-2xl font-bold dark:text-white" data-testid="month-downloads">
                             {stats?.thisMonthDownloads}
                           </p>
                         </div>

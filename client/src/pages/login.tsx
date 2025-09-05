@@ -57,86 +57,104 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Welcome back</CardTitle>
-          <CardDescription className="text-center">
-            Sign in to your Quill account to continue sharing and discovering notes
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4">
+      <div className="w-full max-w-md">
+        {/* Logo Header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center space-x-2 mb-4">
+            <div className="text-primary text-3xl font-bold">✒️</div>
+            <span className="text-3xl font-bold text-gray-900 dark:text-white">Quill</span>
+          </div>
+          <p className="text-gray-600 dark:text-gray-400">
+            The premier platform for academic note sharing
+          </p>
+        </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter your email"
-                {...register("email")}
-                disabled={isLoading}
-              />
-              {errors.email && (
-                <p className="text-sm text-red-600">{errors.email.message}</p>
+        <Card className="w-full">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold text-center">Welcome back</CardTitle>
+            <CardDescription className="text-center">
+              Sign in to your Quill account to continue sharing and discovering notes
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
               )}
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
                 <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  {...register("password")}
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  {...register("email")}
                   disabled={isLoading}
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={isLoading}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
+                {errors.email && (
+                  <p className="text-sm text-red-600">{errors.email.message}</p>
+                )}
               </div>
-              {errors.password && (
-                <p className="text-sm text-red-600">{errors.password.message}</p>
-              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    {...register("password")}
+                    disabled={isLoading}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                {errors.password && (
+                  <p className="text-sm text-red-600">{errors.password.message}</p>
+                )}
+              </div>
+
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  "Sign in"
+                )}
+              </Button>
+            </form>
+
+            <div className="mt-6 text-center text-sm">
+              <span className="text-gray-600 dark:text-gray-400">Don't have an account? </span>
+              <Link href="/signup" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium">
+                Sign up
+              </Link>
             </div>
+          </CardContent>
+        </Card>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                "Sign in"
-              )}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center text-sm">
-            <span className="text-gray-600">Don't have an account? </span>
-            <Link href="/signup" className="text-blue-600 hover:text-blue-800 font-medium">
-              Sign up
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Footer */}
+        <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
+          <p>© 2024 Quill. Made for students, by students.</p>
+        </div>
+      </div>
     </div>
   );
 }

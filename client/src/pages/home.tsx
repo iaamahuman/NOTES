@@ -76,7 +76,7 @@ export default function Home() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-background">
       <Header 
         onSearchChange={handleSearchChange}
         onUploadClick={() => setIsUploadModalOpen(true)}
@@ -126,12 +126,12 @@ export default function Home() {
       </section>
 
       {/* Filter Section */}
-      <section className="bg-white border-b border-gray-200">
+      <section className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             {/* Subject Filters */}
             <div className="flex flex-wrap gap-2">
-              <span className="text-sm font-medium text-gray-700 mr-2">Filter by subject:</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Filter by subject:</span>
               {subjects.map((subject) => (
                 <Button
                   key={subject}
@@ -176,7 +176,7 @@ export default function Home() {
         {/* Featured Notes Section */}
         <section className="mb-12">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900" data-testid="featured-notes-title">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="featured-notes-title">
               Featured Notes
             </h2>
           </div>
@@ -205,7 +205,7 @@ export default function Home() {
         {/* Recent Uploads Section */}
         <section className="mb-12">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900" data-testid="recent-notes-title">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="recent-notes-title">
               Recent Uploads
             </h2>
           </div>
@@ -237,7 +237,7 @@ export default function Home() {
         {(searchQuery || selectedSubject !== "All") && (
           <section>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900" data-testid="search-results-title">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="search-results-title">
                 {searchQuery ? `Search results for "${searchQuery}"` : `${selectedSubject} Notes`}
               </h2>
               <div className="text-sm text-gray-500" data-testid="results-count">
@@ -277,7 +277,7 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white">
+      <footer className="bg-gray-900 dark:bg-gray-950 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid md:grid-cols-4 gap-8">
             {/* Brand */}
