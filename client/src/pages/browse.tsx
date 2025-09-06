@@ -40,6 +40,8 @@ export default function Browse() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [activeTab, setActiveTab] = useState("all");
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const selectedSubject = searchFilters.subjects.length > 0 ? searchFilters.subjects[0] : undefined;
 
   // Debounced search suggestions
   useEffect(() => {
@@ -136,8 +138,19 @@ export default function Browse() {
             <div className="max-w-2xl mx-auto">
               <EnhancedSearch 
                 onSearch={handleSearch}
-                initialFilters={{ query: searchQuery }}
-                className="mb-6"
+                onClear={() => {
+                  setSearchFilters({
+                    query: "",
+                    subjects: [],
+                    fileTypes: [],
+                    dateRange: {},
+                    minRating: 0,
+                    minDownloads: 0,
+                    sortBy: "relevance",
+                    sortOrder: "desc",
+                  });
+                  setSearchQuery("");
+                }}
               />
             </div>
           </div>
@@ -208,7 +221,14 @@ export default function Browse() {
                       key={tag}
                       variant="secondary"
                       className="cursor-pointer hover:bg-blue-100 hover:text-blue-700"
-                      onClick={() => setSearchQuery(tag)}
+                      onClick={() => {
+                        const newFilters = {
+                          ...searchFilters,
+                          query: tag
+                        };
+                        setSearchFilters(newFilters);
+                        setSearchQuery(tag);
+                      }}
                     >
                       #{tag}
                     </Badge>
