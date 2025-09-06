@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import MemoryStore from "memorystore";
+import { WebSocketServer } from "ws";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -82,6 +83,43 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
+  
+  // Set up WebSocket server for real-time features
+  const wss = new WebSocketServer({ server });
+  
+  // Store connected clients with their user IDs
+  const connectedClients = new Map<string, any>();
+  
+  wss.on('connection', (ws, request) => {
+    log('WebSocket client connected');
+    
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        if (data.type === 'authenticate' && data.userId) {
+          connectedClients.set(data.userId, ws);
+          ws.send(JSON.stringify({ type: 'authenticated', userId: data.userId }));
+        }
+      } catch (error) {
+        console.error('WebSocket message error:', error);
+      }
+    });
+    
+    ws.on('close', () => {
+      // Remove client from connected clients
+      connectedClients.forEach((client, userId) => {
+        if (client === ws) {
+          connectedClients.delete(userId);
+        }
+      });
+      log('WebSocket client disconnected');
+    });
+  });
+  
+  // Make WebSocket server accessible to routes
+  (app as any).wss = wss;
+  (app as any).connectedClients = connectedClients;
+  
   server.listen({
     port,
     host: "0.0.0.0",
