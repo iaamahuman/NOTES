@@ -98,8 +98,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const users = Array.from((storage as any).users.values());
         const universities = new Set(
           users
-            .filter(user => user.university)
-            .map(user => user.university)
+            .filter((user: any) => user.university)
+            .map((user: any) => user.university)
         );
         universitiesCount = universities.size;
       }
