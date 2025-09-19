@@ -4,8 +4,16 @@ import MemoryStore from "memorystore";
 import { WebSocketServer } from "ws";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { generalRateLimit, securityHeaders, errorHandler } from "./middleware/security";
+import { cacheManager } from "./utils/cache";
 
 const app = express();
+
+// Apply security headers
+app.use(securityHeaders);
+
+// Apply general rate limiting
+app.use('/api', generalRateLimit);
 
 // Session configuration - use memory store for development
 const MemStore = MemoryStore(session);
@@ -61,13 +69,8 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
+  // Use enhanced error handler
+  app.use(errorHandler);
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route

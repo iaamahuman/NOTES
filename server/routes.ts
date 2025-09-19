@@ -20,6 +20,10 @@ import { storage } from "./storage";
 import { insertNoteSchema, insertUserSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
+import { authRateLimit, uploadRateLimit, searchRateLimit, requireAuth } from "./middleware/security";
+import { cacheManager, cacheMiddleware } from "./utils/cache";
+import { FileProcessor } from "./utils/fileProcessor";
+import { searchEngine } from "./utils/searchEngine";
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), 'uploads');
@@ -68,8 +72,34 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Platform statistics endpoint
-  app.get("/api/platform/stats", async (req, res) => {
+  // Health check endpoint
+  app.get('/health', (req, res) => {
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      version: process.env.npm_package_version || '1.0.0'
+    });
+  });
+
+  // API info endpoint
+  app.get('/api', (req, res) => {
+    res.json({
+      name: 'Quill API',
+      version: '1.0.0',
+      description: 'Academic note-sharing platform API',
+      endpoints: {
+        auth: ['/api/auth/signup', '/api/auth/login', '/api/auth/logout', '/api/auth/me'],
+        notes: ['/api/notes', '/api/notes/:id', '/api/notes/featured', '/api/notes/trending'],
+        search: ['/api/search/suggestions'],
+        stats: ['/api/platform/stats'],
+        health: ['/health']
+      }
+    });
+  });
+  // Platform statistics endpoint with caching
+  app.get("/api/platform/stats", cacheMiddleware(1800), async (req, res) => {
     try {
       const allNotes = await storage.getAllNotes();
       
@@ -116,8 +146,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Auth routes
-  app.post("/api/auth/signup", async (req, res) => {
+  // Auth routes with rate limiting
+  app.post("/api/auth/signup", authRateLimit, async (req, res) => {
     try {
       const { username, email, password, university, major, year } = req.body;
       
@@ -178,7 +208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", authRateLimit, async (req, res) => {
     try {
       const { email, password } = req.body;
       
@@ -261,131 +291,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Authentication middleware
-  const requireAuth = (req: Request, res: Response, next: any) => {
-    if (!req.session.userId) {
-      return res.status(401).json({ message: "Authentication required" });
-    }
-    next();
-  };
+  // Initialize file processor
+  const fileProcessor = new FileProcessor(path.join(process.cwd(), 'uploads'));
 
-  // Enhanced search endpoint with advanced filtering
-  app.get("/api/notes", async (req, res) => {
+  // Enhanced search endpoint with caching and fuzzy search
+  app.get("/api/notes", searchRateLimit, cacheMiddleware(300), async (req, res) => {
     try {
       const { 
         search, subject, fileType, professor, course, semester, 
-        minRating, sortBy, tags, page = "1", limit = "20" 
+        minRating, sortBy, sortOrder, tags, page = "1", limit = "20" 
       } = req.query;
       
-      let notes = await storage.getAllNotes();
+      // Get all notes from storage
+      const allNotes = await storage.getAllNotes();
       
-      // Apply filters
-      if (search && typeof search === 'string') {
-        const searchTerm = search.toLowerCase();
-        notes = notes.filter(note => 
-          note.title.toLowerCase().includes(searchTerm) ||
-          note.description?.toLowerCase().includes(searchTerm) ||
-          note.subject.toLowerCase().includes(searchTerm) ||
-          note.course?.toLowerCase().includes(searchTerm) ||
-          note.professor?.toLowerCase().includes(searchTerm) ||
-          (note.tags && note.tags.some(tag => tag.toLowerCase().includes(searchTerm)))
-        );
-      }
+      // Convert tags string to array if provided
+      const tagArray = tags && typeof tags === 'string' 
+        ? tags.split(',').map(tag => tag.trim()) 
+        : undefined;
       
-      if (subject && typeof subject === 'string' && subject !== 'All Subjects') {
-        notes = notes.filter(note => note.subject === subject);
-      }
+      // Build search filters
+      const filters = {
+        search: search as string,
+        subject: subject as string,
+        fileType: fileType as string,
+        professor: professor as string,
+        course: course as string,
+        semester: semester as string,
+        minRating: minRating ? parseFloat(minRating as string) : undefined,
+        tags: tagArray
+      };
       
-      if (fileType && typeof fileType === 'string' && fileType !== 'All Types') {
-        const typeMap: { [key: string]: string } = {
-          'PDF': 'pdf',
-          'Image': 'image',
-          'Document': 'text',
-          'Presentation': 'pdf',
-          'Text': 'text'
-        };
-        const mappedType = typeMap[fileType];
-        if (mappedType) {
-          notes = notes.filter(note => note.fileType === mappedType);
-        }
-      }
+      // Build search options
+      const options = {
+        sortBy: (sortBy as string) || 'date',
+        sortOrder: (sortOrder as 'asc' | 'desc') || 'desc',
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      };
       
-      if (professor && typeof professor === 'string') {
-        notes = notes.filter(note => 
-          note.professor?.toLowerCase().includes(professor.toLowerCase())
-        );
-      }
+      // Perform enhanced search
+      const searchResult = searchEngine.search(allNotes, filters, options);
       
-      if (course && typeof course === 'string') {
-        notes = notes.filter(note => 
-          note.course?.toLowerCase().includes(course.toLowerCase())
-        );
-      }
-      
-      if (semester && typeof semester === 'string' && semester !== 'All Semesters') {
-        notes = notes.filter(note => note.semester === semester);
-      }
-      
-      if (minRating && typeof minRating === 'string') {
-        const minRatingNum = parseFloat(minRating);
-        notes = notes.filter(note => parseFloat(note.rating || '0') >= minRatingNum);
-      }
-      
-      if (tags && typeof tags === 'string') {
-        const tagArray = tags.split(',').map(tag => tag.trim().toLowerCase());
-        notes = notes.filter(note => 
-          note.tags && tagArray.some(tag => 
-            note.tags!.some(noteTag => noteTag.toLowerCase().includes(tag))
-          )
-        );
-      }
-      
-      // Apply sorting
-      if (sortBy && typeof sortBy === 'string') {
-        switch (sortBy) {
-          case 'date':
-            notes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-            break;
-          case 'rating':
-            notes.sort((a, b) => parseFloat(b.rating || '0') - parseFloat(a.rating || '0'));
-            break;
-          case 'downloads':
-            notes.sort((a, b) => b.downloads - a.downloads);
-            break;
-          case 'views':
-            notes.sort((a, b) => b.views - a.views);
-            break;
-          default: // relevance
-            // Keep current order (already sorted by date from getAllNotes)
-            break;
-        }
-      }
-      
-      // Pagination
-      const pageNum = parseInt(page as string);
-      const limitNum = parseInt(limit as string);
-      const startIndex = (pageNum - 1) * limitNum;
-      const endIndex = startIndex + limitNum;
-      
-      const paginatedNotes = notes.slice(startIndex, endIndex);
-      
-      res.json({
-        notes: paginatedNotes,
-        pagination: {
-          page: pageNum,
-          limit: limitNum,
-          total: notes.length,
-          totalPages: Math.ceil(notes.length / limitNum)
-        }
-      });
+      res.json(searchResult);
     } catch (error) {
       console.error('Error fetching notes:', error);
-      res.status(500).json({ message: "Failed to fetch notes" });
+      res.status(500).json({ error: 'Failed to fetch notes' });
     }
   });
 
-  // Search suggestions endpoint
-  app.get("/api/search/suggestions", async (req, res) => {
+  // Search suggestions endpoint with enhanced search engine
+  app.get("/api/search/suggestions", cacheMiddleware(600), async (req, res) => {
     try {
       const { query } = req.query;
       if (!query || typeof query !== 'string' || query.length < 2) {
@@ -393,42 +349,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const allNotes = await storage.getAllNotes();
-      const suggestions = new Set<string>();
+      const suggestions = searchEngine.getSuggestions(query, allNotes, 8);
       
-      // Add matching titles, subjects, courses, and professors
-      allNotes.forEach(note => {
-        const searchTerm = query.toLowerCase();
-        
-        if (note.title.toLowerCase().includes(searchTerm)) {
-          suggestions.add(note.title);
-        }
-        if (note.subject.toLowerCase().includes(searchTerm)) {
-          suggestions.add(note.subject);
-        }
-        if (note.course && note.course.toLowerCase().includes(searchTerm)) {
-          suggestions.add(note.course);
-        }
-        if (note.professor && note.professor.toLowerCase().includes(searchTerm)) {
-          suggestions.add(note.professor);
-        }
-        if (note.tags) {
-          note.tags.forEach(tag => {
-            if (tag.toLowerCase().includes(searchTerm)) {
-              suggestions.add(tag);
-            }
-          });
-        }
-      });
-      
-      res.json(Array.from(suggestions).slice(0, 8));
+      res.json(suggestions);
     } catch (error) {
       console.error('Error fetching search suggestions:', error);
-      res.status(500).json({ message: "Failed to fetch suggestions" });
+      res.status(500).json({ error: "Failed to fetch suggestions" });
     }
   });
 
   // Get featured notes
-  app.get("/api/notes/featured", async (req, res) => {
+  app.get("/api/notes/featured", cacheMiddleware(900), async (req, res) => {
     try {
       const notes = await storage.getFeaturedNotes();
       res.json(notes);
@@ -439,7 +370,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get trending notes (most downloaded/viewed in the last week)
-  app.get("/api/notes/trending", async (req, res) => {
+  app.get("/api/notes/trending", cacheMiddleware(600), async (req, res) => {
     try {
       const allNotes = await storage.getAllNotes();
       
@@ -594,49 +525,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload note
-  app.post("/api/notes", requireAuth, upload.single('file'), async (req, res) => {
+  app.post("/api/notes", requireAuth, uploadRateLimit, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
+        return res.status(400).json({ error: "No file uploaded" });
       }
 
-      const { title, description, subject } = req.body;
+      const { title, description, subject, course, professor, semester, tags } = req.body;
 
       // Validate required fields
       if (!title || !subject) {
-        return res.status(400).json({ message: "Title and subject are required" });
+        return res.status(400).json({ error: "Title and subject are required" });
       }
 
-      // Determine file type
-      let fileType = 'text';
-      const ext = path.extname(req.file.originalname).toLowerCase();
-      if (ext === '.pdf') {
-        fileType = 'pdf';
-      } else if (['.jpg', '.jpeg', '.png', '.gif'].includes(ext)) {
-        fileType = 'image';
+      // Validate and process uploaded file
+      const isValid = await fileProcessor.validateFile(req.file.path, req.file.originalname);
+      if (!isValid) {
+        await fs.promises.unlink(req.file.path); // Clean up invalid file
+        return res.status(400).json({ error: "Invalid file type or corrupted file" });
       }
+
+      // Process file (compress images, create thumbnails, etc.)
+      const processedFile = await fileProcessor.processFile(req.file.path, req.file.originalname);
+
+      // Determine file type more accurately
+      let fileType = 'text';
+      if (processedFile.mimetype.startsWith('image/')) {
+        fileType = 'image';
+      } else if (processedFile.mimetype === 'application/pdf') {
+        fileType = 'pdf';
+      } else if (processedFile.mimetype.includes('document') || processedFile.mimetype.includes('presentation')) {
+        fileType = 'document';
+      }
+
+      // Process tags
+      const tagArray = tags ? tags.split(',').map((tag: string) => tag.trim()).filter(Boolean) : [];
 
       const noteData = {
         title,
         description: description || null,
         subject,
+        course: course || null,
+        professor: professor || null,
+        semester: semester || null,
+        tags: tagArray.length > 0 ? tagArray : null,
         fileType,
-        fileName: req.file.originalname,
-        fileSize: req.file.size,
-        filePath: req.file.path,
-        uploaderId: req.session.userId!, // Use authenticated user
+        fileName: processedFile.originalName,
+        fileSize: processedFile.size,
+        filePath: processedFile.path,
+        thumbnailPath: processedFile.thumbnailPath || null,
+        uploaderId: req.session.userId!,
       };
 
       const validatedData = insertNoteSchema.parse(noteData);
       const note = await storage.createNote(validatedData);
 
-      res.status(201).json(note);
+      // Invalidate caches
+      cacheManager.invalidateNotesCaches();
+
+      res.status(201).json({
+        message: "Note uploaded successfully",
+        note
+      });
     } catch (error) {
       console.error('Error uploading note:', error);
       if (req.file) {
-        fs.unlinkSync(req.file.path); // Clean up uploaded file on error
+        try {
+          await fs.promises.unlink(req.file.path); // Clean up uploaded file on error
+        } catch (unlinkError) {
+          console.warn('Failed to clean up file:', unlinkError);
+        }
       }
-      res.status(500).json({ message: "Failed to upload note" });
+      res.status(500).json({ error: "Failed to upload note" });
     }
   });
 
