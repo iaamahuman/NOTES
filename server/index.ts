@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import MemoryStore from "memorystore";
-import { WebSocketServer } from "ws";
+// import { WebSocketServer } from "ws";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -84,10 +84,10 @@ app.use((req, res, next) => {
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
   
-  // Set up WebSocket server for real-time features
+  // WebSocket server temporarily disabled to avoid conflicts with Vite HMR
+  // TODO: Re-enable WebSocket functionality if needed for real-time features
+  /*
   const wss = new WebSocketServer({ server });
-  
-  // Store connected clients with their user IDs
   const connectedClients = new Map<string, any>();
   
   wss.on('connection', (ws, request) => {
@@ -105,8 +105,11 @@ app.use((req, res, next) => {
       }
     });
     
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
+    });
+    
     ws.on('close', () => {
-      // Remove client from connected clients
       connectedClients.forEach((client, userId) => {
         if (client === ws) {
           connectedClients.delete(userId);
@@ -116,9 +119,9 @@ app.use((req, res, next) => {
     });
   });
   
-  // Make WebSocket server accessible to routes
   (app as any).wss = wss;
   (app as any).connectedClients = connectedClients;
+  */
   
   server.listen({
     port,
